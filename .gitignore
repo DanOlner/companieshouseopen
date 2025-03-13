@@ -1,0 +1,16 @@
+.Rproj.user
+*.Rproj
+.Rhistory
+.RData
+.Ruserdata
+.RDataTmp
+*.docx
+*.doc
+*.ppt
+*.pptx
+*.tmp
+*.odt
+*.odt#
+local/
+cuttinz/
+data/backups/
