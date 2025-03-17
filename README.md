@@ -10,7 +10,7 @@ OK, so it's already open data (see below) - but it's not very accessible. What t
 
 ## THINGS ABOUT THE CODE
 
-The wrangling folder contains each processing stage. Those are (in rough order, though some can be run whenever useful):
+The [wrangling](https://github.com/DanOlner/companieshouseopen/tree/master/wrangling) folder contains each processing stage. Those are (in rough order, though some can be run whenever useful):
 
-1. process_current_CH_livelist.R -- Gets the latest CH live list of companies, keeps useful info about each and saves locally. If it doesn't exist, it creates a 'local' folder to put this in.
+1. **[process_current_CH_livelist.R](https://github.com/DanOlner/companieshouseopen/blob/master/wrangling/process_current_CH_livelist.R)** -- Gets the latest CH live list of companies, keeps useful info about each and saves locally. If it doesn't exist, it creates a 'local' folder to put this in.
  
