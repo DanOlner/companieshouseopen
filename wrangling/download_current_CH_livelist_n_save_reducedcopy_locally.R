@@ -9,7 +9,7 @@ library(xml2)
 #Get zip direct from website
 #The date on the download name changes so will have to get newest version each time...
 
-# Load the HTML file
+# Load the HTML page that contains the download link
 doc <- read_html("https://download.companieshouse.gov.uk/en_output.html")
 
 # Extract all <a> tags with hrefs containing ""
@@ -30,12 +30,15 @@ download.file(url1, p1f, mode="wb")
 #Stick into dataframe
 ch <- read_csv(p1f)
 
+#If need to save full version for checks elsewhere
+# saveRDS(ch,'local/ch_livelistcheck.rds')
+
 #3.8gb prior to column reduction
 #(March 2025)
 # pryr::object_size(ch)
 
 # #reduce to only the columns we need for now and resave for ease of loading
-ch <- ch %>% select(CompanyName,CompanyNumber,RegAddress.PostCode,RegAddress.PostTown,CompanyCategory,CompanyStatus,CountryOfOrigin,IncorporationDate,SICCode.SicText_1:SICCode.SicText_4,URI)
+ch <- ch %>% select(CompanyName,CompanyNumber,RegAddress.CareOf,RegAddress.AddressLine1,RegAddress.AddressLine2,RegAddress.PostCode,RegAddress.PostTown,CompanyCategory,CompanyStatus,CountryOfOrigin,IncorporationDate,SICCode.SicText_1:SICCode.SicText_4,URI)
 # 
 # ... 2gb after
 # pryr::object_size(ch)

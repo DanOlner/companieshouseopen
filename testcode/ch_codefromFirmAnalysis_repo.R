@@ -411,10 +411,6 @@ for(i in 1:length(zip_links)){
     
     download.file(zip_links_urls[i], file_path[i], mode = "wb")  # Binary mode for ZIP files
     
-    # httr::GET(zip_links_urls[i], write_disk(file_path[i]), timeout(Inf))  # No timeout
-    
-    # curl::curl_download(zip_links_urls[i], file_path[i], handle = handle)
-    
     message(paste("Downloaded"))
   }, error = function(e) {
     message(paste("Failed to download", "Error:", e$message))
