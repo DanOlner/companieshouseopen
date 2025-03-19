@@ -66,6 +66,51 @@ table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company')
 table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company') %>% prop.table(margin = 1) * 100
 
 
+
+
+
+
+
+# ACCOUNT EXTRACT CHECKS----
+
+extract.locs <- list.files('local/account_extracts', full.names = T)
+
+#Stick into single df
+extracts <- extract.locs %>% map(readRDS) %>% bind_rows
+#pryr::object_size(extracts) 732.65mb in memory
+
+extracts <- extracts %>% 
+  mutate(hasatleastoneemployeecount = !is.na(Employees_thisyear))
+
+table(extracts$dormantstatus)
+
+#Overlap with dormant status or not?
+#Oh that field is not super helpful as is!
+table(extracts$dormantstatus, extracts$hasatleastoneemployeecount)
+
+#Needs checking against SIC code 1 entry for "99999 Dormant" to make sure
+
+#check how many accounts per firm are in extracts (usually going to one)
+account.count <- extracts %>% 
+  group_by(companynumber) %>% 
+  summarise(count = n())
+
+#Well that's readable
+table(account.count$count)
+
+#To pick a random company number with 6 entries in the last year...
+#Looks like what's happened: they've submitted several years' accounts backdated
+extracts %>% filter(companynumber == '05570992') %>% View
+
+#Check on some of the 2s...
+extracts %>% filter(companynumber %in% account.count$companynumber[account.count$count ==2]) %>%
+  arrange(companynumber) %>% 
+  View
+
+
+
+
+
 # COMPARE PARALLEL TO NON PARALLEL ACCOUNTS PROCESSING----
 
 #Using furrr
