@@ -1,6 +1,7 @@
 #Various tests
 library(tidyverse)
 library(sf)
+options(scipen = 99)
 source('functions.R')
 
 # CHECK ON POSTCODE MATCHING TO CH LIVE LIST - WHAT PLACES DIDN'T MATCH?----
@@ -50,13 +51,19 @@ ch.nomatch.withaddressdetails <- ch %>% filter(is.na(RegAddress.PostCode), !is.n
 #https://companydoctor.co.uk/active-proposal-to-strike-off/
 table(ch$CompanyStatus)
 
+#Total proportion of active vs various reasons not active
+#91.3% active
+table(ch$CompanyStatus) %>% prop.table() * 100
+
 #Then there's...
 #Which just means "no sig transactions in the last year"
 #https://www.gov.uk/dormant-company/dormant-for-companies-house
 table(ch$SICCode.SicText_1 == '99999 - Dormant Company')
 
 #Overlap? Weirdly not much
+#Around 98% of active not dormant
 table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company')
+table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company') %>% prop.table(margin = 1) * 100
 
 
 # COMPARE PARALLEL TO NON PARALLEL ACCOUNTS PROCESSING----
@@ -68,6 +75,15 @@ table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company')
 
 
 
+
+# CHECK DETAILS IN RANDOM EXTRACTED ACOUNTS FILE----
+
+x <- readRDS('local/account_extracts/Accounts_Monthly_Data-April2024.rds')
+
+#52mb in memory
+pryr::object_size(x)
+
+g(x)
 
 
 
