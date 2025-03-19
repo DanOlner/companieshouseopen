@@ -55,6 +55,8 @@ table(ch$CompanyStatus)
 #91.3% active
 table(ch$CompanyStatus) %>% prop.table() * 100
 
+table(ch$CompanyCategory)
+
 #Then there's...
 #Which just means "no sig transactions in the last year"
 #https://www.gov.uk/dormant-company/dormant-for-companies-house
@@ -132,7 +134,7 @@ g(x)
 
 
 
-#CHECK ON AVAILABLE DATA IN IXBRL FORMAT IN ACCOUNTS----
+# CHECK ON AVAILABLE DATA IN IXBRL FORMAT IN ACCOUNTS----
 
 #Will vary, so need to extract from a few accounts and see what's there.
 #How many match what's listed in the URI guide here?
@@ -146,10 +148,37 @@ g(x)
 
 
 
+# EXAMINE COMBINED LIVE LIST / ACCOUNT EXTRACTS FOR EMPLOYEE NUMBER----
+
+both <- readRDS('local/accountextracts_n_livelist_geocoded_combined.rds')
+
+#Count of firms per LA
+both %>% 
+  st_set_geometry(NULL) %>% 
+  group_by(localauthority_name) %>% 
+  summarise(n()) %>% 
+  View
+
+#Join SIC lookup to first SIC code
+both <- both %>% 
+  mutate(
+    SIC_5DIGIT_CODE = substr(SICCode.SicText_1,1,5)
+  ) %>% 
+  left_join(
+    read_csv('https://github.com/DanOlner/ukcompare/raw/master/data/SIClookup.csv'),
+    by = 'SIC_5DIGIT_CODE'
+  ) %>% 
+  relocate(SIC_5DIGIT_NAME, .after = SIC_5DIGIT_CODE) %>% 
+  relocate(SIC_2DIGIT_CODE_NUMERIC, .after = SIC_2DIGIT_CODE)
+
+#drop all dormant. From 3255134 to 3173230
+both <- both %>% filter(SIC_5DIGIT_CODE!="99999")
 
 
+#Let's make map of manufacturing
+if (!dir.exists('local/qgis')) dir.create('local/qgis')
 
-
+st_write('local/')
 
 
 
