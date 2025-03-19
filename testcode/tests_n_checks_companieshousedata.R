@@ -178,7 +178,24 @@ both <- both %>% filter(SIC_5DIGIT_CODE!="99999")
 #Let's make map of manufacturing
 if (!dir.exists('local/qgis')) dir.create('local/qgis')
 
-st_write('local/')
+st_write(
+  both %>% filter(SIC_SECTION_NAME == 'Manufacturing') %>% select(localauthority_name,Employees_thisyear),
+  'local/qgis/livelist_manuf_section.geojson')
+
+st_write(
+  both %>% filter(qg('information',SIC_SECTION_NAME)) %>% select(localauthority_name,Employees_thisyear),
+  'local/qgis/livelist_ICT_section.geojson')
+
+st_write(
+  both %>% filter(qg('agri',SIC_SECTION_NAME)) %>% select(localauthority_name,Employees_thisyear),
+  'local/qgis/livelist_ICT_section.geojson')
+
+
+
+
+
+
+
 
 
 

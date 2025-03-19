@@ -6,9 +6,14 @@ library(httr)
 library(jsonlite)
 library(xml2)
 
-#Helper functions
+#HELPER FUNCTIONS
+#reduce need to type glimpse every time...
 g <- function(x) glimpse(x)
+v <- function(x) View(x)
 
+#Wrap grepl to do tidier version of this when e.g. filtering for terms
+#gq = "grepl quick!"
+qg <- function(...) grepl(..., ignore.case = T)
 
 #OSM postcode fetch
 get_fulladdress_from_osm <- function(business_name, place_name, quotebusiness = F) {
