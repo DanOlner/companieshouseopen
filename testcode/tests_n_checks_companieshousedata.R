@@ -59,6 +59,16 @@ table(ch$SICCode.SicText_1 == '99999 - Dormant Company')
 table(ch$CompanyStatus,ch$SICCode.SicText_1 == '99999 - Dormant Company')
 
 
+# COMPARE PARALLEL TO NON PARALLEL ACCOUNTS PROCESSING----
+
+#Using furrr
+#This section assumes a monthly accounts zip has already been downloaded
+#And then set up using extractinfo_fromaccountfiles.R
+
+
+
+
+
 
 
 #CHECK ON AVAILABLE DATA IN IXBRL FORMAT IN ACCOUNTS----

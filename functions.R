@@ -267,11 +267,6 @@ get_accounts_data <- function(filename, ziplocation = NULL){
     )
   )
   
-  # Extract employee numbers for 2024 and 2023
-  # employees_2024 <- xml2::xml_text(xml2::xml_find_first(doc, "//ix:nonFraction[@name='core:AverageNumberEmployeesDuringPeriod' and @contextRef='D0']"))
-  # employees_2023 <- xml2::xml_text(xml2::xml_find_first(doc, "//ix:nonFraction[@name='core:AverageNumberEmployeesDuringPeriod' and @contextRef='D11']"))
-  
-  #Need to check it's getting the correct year order if more than one employee count
   return(list(Company = company_name, enddate = enddate, dormantstatus = dormant, Employees_thisyear = as.numeric(employeevals[1]), Employees_lastyear = as.numeric(employeevals[2])))
 
 }
