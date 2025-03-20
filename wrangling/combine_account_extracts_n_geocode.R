@@ -102,13 +102,13 @@ extracts.singleaccounts <- extracts.singleaccounts %>%
 
 # CHECK MATCH BETWEEN LIVE LIST AND EXTRACTED ACCOUNTS----
 
-#Check match on companies house number... 8.2% with no match in the live list
+#Check match on companies house number... 8.2% of account extracts with no match in the live list
 table(extracts.singleaccounts$companynumber %in% ch$CompanyNumber)
 table(extracts.singleaccounts$companynumber %in% ch$CompanyNumber) %>% prop.table() * 100
 
 #Look at the falses - what accounts are those? Many NI - postcodes are GB only so that makes sense
 #A lot of others are dissolved - no longer live
-extracts.singleaccounts %>% filter(!companynumber %in% ch$CompanyNumber) %>% View
+# extracts.singleaccounts %>% filter(!companynumber %in% ch$CompanyNumber) %>% View
 
 
 
@@ -123,17 +123,11 @@ both <- ch %>%
     by = c('CompanyNumber' = 'companynumber')
   )
 
-
-
-
-
-
-
-
-
+#85% with employee values
+table(!is.na(both$Employees_thisyear)) %>% prop.table() * 100
 
 #2.4gb
-pryr::object_size(both)
+# pryr::object_size(both)
 
 saveRDS(both, 'local/accountextracts_n_livelist_geocoded_combined.rds')
 

@@ -4,6 +4,9 @@ library(sf)
 options(scipen = 99)
 source('functions.R')
 
+
+
+
 # CHECK ON POSTCODE MATCHING TO CH LIVE LIST - WHAT PLACES DIDN'T MATCH?----
 
 #Looking at the entire current live list and which companies' postcodes found no match
@@ -188,7 +191,7 @@ st_write(
 
 st_write(
   both %>% filter(qg('agri',SIC_SECTION_NAME)) %>% select(localauthority_name,Employees_thisyear),
-  'local/qgis/livelist_ICT_section.geojson')
+  'local/qgis/livelist_agri_section.geojson')
 
 
 
