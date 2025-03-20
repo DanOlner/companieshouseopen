@@ -77,7 +77,8 @@ ggplot(
 #Make a UK size grid
 #BNG is in metres...
 #Use companies house bounding box for size
-sq = st_make_grid(ch, cellsize = 5000)
+sq = st_make_grid(ch, cellsize = 5000, square = T)
+sq = st_make_grid(ch, cellsize = 5000, square = F)
 
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
@@ -104,7 +105,8 @@ section.summary <- overlay %>%
   summarise(totalemployees = sum(Employees_thisyear)) %>% 
   filter(!is.na(SIC_SECTION_NAME)) %>% 
   group_by(id) %>% 
-  filter(sum(totalemployees) >= 100)#keep only gridsquares where total employee count is more than / equal to 100
+  filter(sum(totalemployees) >= 50)#keep only gridsquares where total employee count is more than / equal to 100
+  # filter(sum(totalemployees) >= 100)#keep only gridsquares where total employee count is more than / equal to 100
 
 
 #Confirm only 100+ per grid square... tick
