@@ -15,6 +15,8 @@ v <- function(x) View(x)
 #gq = "grepl quick!"
 qg <- function(...) grepl(..., ignore.case = T)
 
+percent_change <- function(x,y) ((y - x) / x) * 100
+
 #OSM postcode fetch
 get_fulladdress_from_osm <- function(business_name, place_name, quotebusiness = F) {
   
