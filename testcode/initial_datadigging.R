@@ -152,8 +152,95 @@ tm_shape(itl2) +
   tm_borders(col = 'black')
   
   
-  
-  
+
+
+
+
+# Version of same that picks out specific geographies for higher rez----
+
+#Haven't tested how long it would take to do this for higher rez for whole GB
+
+place <- ch %>% filter(qg('south y',ITL221NM))
+place <- ch %>% filter(qg('yorkshire',ITL221NM))#gets all four yorkshires
+place <- ch %>% filter(qg('manchester',ITL221NM))
+place <- ch %>% filter(qg('london',ITL221NM))#this will get several!
+
+#Names all match (predictably - the names in the postcode lookup came from same shapefile!)
+table(unique(place$ITL221NM) %in% itl2$ITL221NM)
+
+sq = st_make_grid(place, cellsize = 500, square = F)
+
+#Turn into sf object so gridsquares can have IDs to group by
+sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
+
+plot(sq)
+
+#Intersection...
+overlay <- st_intersection(place,sq)
+
+#Before getting modal section, need to summarise thus
+#Get sum of employees per SIC section in each grid square
+
+#Also need to reduce section number, see which to combine
+# unique(ch$SIC_SECTION_NAME)
+
+
+#This no longer needs to be geo, which will speed up
+#Can link back to grids once done
+section.summary <- overlay %>% 
+  st_set_geometry(NULL) %>% 
+  filter(Employees_thisyear > 0) %>% #Only firms with employees recorded in latest year
+  filter(!qg('households|extraterr', SIC_SECTION_NAME)) %>% #sections to leave out when summing; keeping separate to make change easier
+  group_by(id,SIC_SECTION_NAME) %>%
+  summarise(totalemployees = sum(Employees_thisyear)) %>% 
+  filter(!is.na(SIC_SECTION_NAME)) %>% 
+  group_by(id) %>% 
+  filter(sum(totalemployees) >= 10)#keep only gridsquares where total employee count is more than / equal to 100
+# filter(sum(totalemployees) >= 100)#keep only gridsquares where total employee count is more than / equal to 100
+
+
+#Confirm only 100+ per grid square... tick
+section.summary %>% 
+  group_by(id) %>% 
+  summarise(sum = sum(totalemployees)) %>% 
+  ungroup() %>% 
+  summarise(min = min(sum))
+
+
+#Find modal sector
+modal.sector <- section.summary %>%
+  group_by(id) %>% 
+  summarise(modal_sector = SIC_SECTION_NAME[which.max(totalemployees)])
+
+#Link that back into the grid squares...
+#Use right join to drop empties
+sq.modal <- sq %>% 
+  right_join(
+    modal.sector,
+    by = 'id'
+  )
+
+
+
+#https://stackoverflow.com/a/33144808/5023561
+#Make different pastel-ish colours
+n <- length(unique(sq.modal$modal_sector))
+set.seed(101)
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+pie(rep(1,n), col=sample(col_vector, n))
+
+tmap_mode('view')
+
+tm_shape(
+  sq.modal
+  # sq.modal %>% mutate(combined_label = paste0(ITL221NM,', ',modal_sector))
+) +
+  tm_polygons('modal_sector', fill.scale = tm_scale_categorical(values = col_vector), id="modal_sector", col_alpha = 0, fill_alpha = 0.65) 
+  tm_shape(itl2 %>% filter(ITL221NM %in% place$ITL221NM)) +
+  tm_borders(col = 'black')
+
+
   
 
 
