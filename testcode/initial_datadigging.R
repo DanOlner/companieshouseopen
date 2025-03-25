@@ -33,18 +33,6 @@ ch <- ch %>%
 ch <- ch %>% filter(SIC_5DIGIT_CODE!="99999")
 
 
-#Filter out obviously error employee counts
-toobig <- ch %>% st_set_geometry(NULL) %>% select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear) %>% pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% filter(employees_count > 1000)
-
-
-ggplot(
-  ,
-  aes(x = employees_count, y = employees_year)) +
-  geom_jitter(height = 0.1)
-
-
-#AVERAGE AGE OF FIRMS IN ITL2 REGIONS PER SIC SECTION----
-
 #Date-ify incorporation date
 ch <- ch %>%
   mutate(
@@ -59,6 +47,28 @@ ch <- ch %>%
   mutate(
     age_of_firm_years = (difftime(today(),incorporationdate_formatted) / 365) %>% as.numeric()
   )
+
+
+
+# LOOK FOR TOO-BIG EMPLOYEE COUNT FIRMS----
+
+#Some of the the employee values are VERY WRONG - usually because the IXBRL value has e.g. ended up with the asset value by mistake
+
+#Look at some of the possibly-too-big values
+#Only ~400 of those in total for the last year's accounts
+toobig <- ch %>% st_set_geometry(NULL) %>% select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% filter(employees_count > 1000)
+# 
+ggplot(
+  toobig,
+  aes(x = employees_count, y = employees_year)) +
+  geom_jitter(height = 0.1)
+
+#Just in SY
+toobig %>% filter(qg('south y',ITL221NM)) %>% View
+
+
+#AVERAGE AGE OF FIRMS IN ITL2 REGIONS PER SIC SECTION----
+
 
 
 #Any obvious differences overall? No, this isn't very informative!
@@ -96,10 +106,12 @@ ggplot(
 sq = st_make_grid(ch, cellsize = 5000, square = T)
 sq = st_make_grid(ch, cellsize = 5000, square = F)
 
+sq = st_make_grid(ch, cellsize = 1000, square = F)
+
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
 
-plot(sq)
+# plot(sq)
 
 #Intersection...
 overlay <- st_intersection(ch,sq)
@@ -121,7 +133,8 @@ section.summary <- overlay %>%
   summarise(totalemployees = sum(Employees_thisyear)) %>% 
   filter(!is.na(SIC_SECTION_NAME)) %>% 
   group_by(id) %>% 
-  filter(sum(totalemployees) >= 50)#keep only gridsquares where total employee count is more than / equal to 100
+  filter(sum(totalemployees) >= 25)#keep only gridsquares where total employee count is more than / equal to 100
+  # filter(sum(totalemployees) >= 50)#keep only gridsquares where total employee count is more than / equal to 100
   # filter(sum(totalemployees) >= 100)#keep only gridsquares where total employee count is more than / equal to 100
 
 
@@ -266,7 +279,7 @@ tm_shape(
 
 # MAP: MEDIAN AGE OF FIRM----
 
-sq = st_make_grid(ch, cellsize = 2500, square = F)
+sq = st_make_grid(ch, cellsize = 1000, square = F)
 
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
@@ -417,13 +430,16 @@ empchange.summary <- ch.ec.10pluslastyr %>%
 
 #Plot
 p <- ggplot(
+  # empchange.summary %>% filter(firmcount > 19) %>%  mutate(SY = ITL221NM == 'Merseyside') %>% mutate(SIC_SECTION_NAME = fct_reorder(SIC_SECTION_NAME, employment_percentchange)),
   empchange.summary %>% filter(firmcount > 19) %>%  mutate(SY = ITL221NM == 'South Yorkshire') %>% mutate(SIC_SECTION_NAME = fct_reorder(SIC_SECTION_NAME, employment_percentchange)),
   aes(y = SIC_SECTION_NAME, x = employment_percentchange, group = ITL221NM, colour = SY, size = SY, alpha = SY)) +
   geom_jitter(width = 0.001, height = 0.1) +
   scale_color_manual(values = c('black','red')) +
   scale_alpha_manual(values = c(0.3,1)) +
   coord_cartesian(xlim = c(-25,25)) +
-  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green')
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  ylab("") +
+  ggtitle('Percent change in employment between most recent accounts and previous year\nAll ITL2 zones, South Yorkshire overlaid in red\nHover for place name')
 
 
 #Who are those SY transportation/storage firms growing so much?
@@ -431,12 +447,99 @@ p <- ggplot(
 # ch.ec.10pluslastyr %>% filter(ITL221NM == 'South Yorkshire', qg('transport',SIC_SECTION_NAME)) %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,employee_percentchange) %>% st_set_geometry(NULL) %>% View
 ggplotly(p, width = 1200, height = 700, tooltip = 'ITL221NM')
 
-employment_percentchange_fromlastaccounts_SICsections_v_ITL2zones_SouthYorkshireInRed
+
+
+#Version for four places vs...
+empchange.summary <- ch.ec.10pluslastyr %>% 
+  st_set_geometry(NULL) %>% 
+  filter(!qg('households|extraterr|mining', SIC_SECTION_NAME)) %>% #sections to leave out when summing; keeping separate to make change easier
+  group_by(localauthority_name,SIC_SECTION_NAME) %>%
+  summarise(
+    total_employmentlastyear = sum(Employees_lastyear),
+    total_employmentthisyear = sum(Employees_thisyear),
+    employment_percentchange = percent_change(total_employmentlastyear,total_employmentthisyear),
+    firmcount = n()
+  ) %>% 
+  filter(!is.na(SIC_SECTION_NAME))
+
+
+
+#Plot
+p <- ggplot() +
+  geom_point(
+    position = position_nudge(y = 0.2),
+    # data = empchange.summary %>% filter(firmcount > 19),
+    data = empchange.summary %>% filter(
+      firmcount > 5,
+      qg('Belfast|Birmingham|Bristol|Cardiff|Glasgow|Leeds|Liverpool|Manchester|Tyne|Nottingham', localauthority_name)#just core cities (minus four places below)
+      ),
+    aes(y = SIC_SECTION_NAME, x = employment_percentchange, group = localauthority_name),
+    alpha = 0.5)
+
+#Add four places
+p <- p + 
+  geom_point(
+    position = position_nudge(y = -0.2),
+    data = empchange.summary %>% filter(firmcount > 5, qg('sheff|rotherham|doncaster|barnsley',localauthority_name)),
+    aes(y = fct_reorder(SIC_SECTION_NAME, employment_percentchange), x = employment_percentchange, colour = localauthority_name),
+    size = 7, shape = 17) +
+  scale_colour_brewer(palette = 'Paired', direction = 1) +
+  coord_cartesian(xlim = c(-25,25)) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  ylab("") +
+  ggtitle('Percent change in employment between most recent accounts and previous year\nCore cities, with SY four LAs overlaid, hover for place name')
+
+
+#p
+
+ggplotly(p, width = 1200, height = 900, tooltip = 'localauthority_name')
+
+
+#Education in Doncaster??
+ch.ec.10pluslastyr %>% filter(localauthority_name == 'Doncaster', qg('educ',SIC_SECTION_NAME))  %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,employee_percentchange) %>% st_set_geometry(NULL) %>% View
+
+
+
+
+
+
+
+
+
+
+# DIG MORE INTO EMPLOYEE PERCENT CHANGE TO LOOK FOR HIGH GROWTH SECTORS etc----
+
+#Pick just on SY for now - look at single firms and their % change for one sector
+sy.change <- ch.ec.10pluslastyr %>% 
+  select(CompanyName,CompanyNumber,ITL221NM,localauthority_name,accountcode,incorporationdate_formatted,Employees_thisyear,Employees_lastyear,employee_percentchange, SIC_SECTION_NAME) %>% 
+  filter(
+    qg('south y', ITL221NM) 
+    # qg('manuf', SIC_SECTION_NAME)
+  )
+
+#Interesting digging into the top grower there, SBD Apparel. Large growth after SCR 1.5M grant, now shrinking again?
+#https://www.thestar.co.uk/business/sheffield-jobs-powerlifting-firm-sbd-apparel-set-to-make-dozens-redundant-after-move-to-ps9m-new-factory-4725400
+
+#Percent change vs sector for SY?
+p <- ggplot(sy.change,aes(y = SIC_SECTION_NAME, x = employee_percentchange, group = CompanyName)) +
+  geom_jitter(height = 0.1, alpha = 0.3) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  ylab("") +
+  ggtitle('Percent change in employment between most recent accounts and previous year\nAll SY firms with 10+ employees, hover for firm name')
+
+
+ggplotly(p, width = 1200, height = 700, tooltip = 'CompanyName')
+
+
+
+
+
+
 
 # MAP OF EMPLOYEE PERCENT CHANGE----
 
 #Ooo I might want another map. Though if doing that, should sum employees per hex grid really
-sq = st_make_grid(ch, cellsize = 10000, square = F)
+sq = st_make_grid(ch, cellsize = 1000, square = F)
 
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
@@ -448,6 +551,13 @@ sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
 overlay <- st_intersection(ch.ec %>% filter(qg('manuf',SIC_SECTION_NAME)),sq)
 # overlay <- st_intersection(ch.ec %>% filter(qg('information',SIC_SECTION_NAME)),sq)
 # overlay <- st_intersection(ch.ec %>% filter(qg('public',SIC_SECTION_NAME)),sq)
+
+#And places
+overlay <- st_intersection(ch.ec %>% filter(
+  # qg('information',SIC_SECTION_NAME),
+  qg('yorkshire',ITL221NM)
+  ),
+  sq)
 
 #This no longer needs to be geo, which will speed up
 #Can link back to grids once done
@@ -490,6 +600,9 @@ tm_shape(sq.map) +
   # tm_view() +
   tm_shape(itl2) +
   tm_borders(col = 'black')
+
+
+
 
 
 
