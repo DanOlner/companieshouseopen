@@ -103,10 +103,10 @@ ggplot(
 #Make a UK size grid
 #BNG is in metres...
 #Use companies house bounding box for size
-sq = st_make_grid(ch, cellsize = 5000, square = T)
+# sq = st_make_grid(ch, cellsize = 5000, square = T)
 sq = st_make_grid(ch, cellsize = 5000, square = F)
 
-sq = st_make_grid(ch, cellsize = 1000, square = F)
+# sq = st_make_grid(ch, cellsize = 1000, square = F)
 
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
@@ -179,7 +179,8 @@ tm_shape(
   tm_polygons('modal_sector', fill.scale = tm_scale_categorical(values = col_vector), id="modal_sector", col_alpha = 0, fill_alpha = 0.65) +
   # tm_view(set.view = c(7, 51, 4)) +
 tm_shape(itl2) +
-  tm_borders(col = 'black')
+  tm_borders(col = 'black') +
+  tm_view(bbox = "England")
   
   
 
