@@ -180,7 +180,8 @@ tm_shape(
   # tm_view(set.view = c(7, 51, 4)) +
 tm_shape(itl2) +
   tm_borders(col = 'black') +
-  tm_view(bbox = "England")
+  tm_view(set_view = -1.598452,52.740283,8)
+  # tm_view(bbox = "England")
   
   
 
