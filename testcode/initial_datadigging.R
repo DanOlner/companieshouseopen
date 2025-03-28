@@ -180,7 +180,7 @@ tm_shape(
   # tm_view(set.view = c(7, 51, 4)) +
 tm_shape(itl2) +
   tm_borders(col = 'black') +
-  tm_view(set_view = -1.598452,52.740283,8)
+  tm_view(set_view = c(-1.598452,52.740283,8))
   # tm_view(bbox = "England")
   
   
@@ -429,6 +429,9 @@ empchange.summary <- ch.ec.10pluslastyr %>%
   ) %>% 
   filter(!is.na(SIC_SECTION_NAME))
 
+#Save pre-processed summary to be used in report
+saveRDS(empchange.summary,'data/reportdata/ch_employmentpercentchange_itl2.rds')
+
 
 #Plot
 p <- ggplot(
@@ -441,7 +444,7 @@ p <- ggplot(
   coord_cartesian(xlim = c(-25,25)) +
   geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
   ylab("") +
-  ggtitle('Percent change in employment between most recent accounts and previous year\nAll ITL2 zones, South Yorkshire overlaid in red\nHover for place name')
+  ggtitle('Percent change in employment between most recent accounts and previous year\nAll ITL2 zones, South Yorkshire overlaid in red - hover for place name')
 
 
 #Who are those SY transportation/storage firms growing so much?

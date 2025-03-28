@@ -1,0 +1,23 @@
+---
+title: "ONS Business Demography dataset 2017-22: what does it say about South Yorkshire?"
+author: "Dan Olner"
+format: 
+  html:
+    output-file: "companies_house_SY_initialreport_march2025"
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r, setup}
+library(tidyverse)
+library(plotly)
+
+```
+
+
+
+
+
+
