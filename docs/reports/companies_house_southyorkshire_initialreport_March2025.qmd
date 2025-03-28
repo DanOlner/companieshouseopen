@@ -60,10 +60,20 @@ orderby <- empchange.summary.itl2 %>%
 
 These are **some first results** from extracting **national-level data from Companies House** and **setting South Yorkshire in that national context**. This report looks *just* at employee numbers, as recorded in Companies House accounts.
 
-* 74% of accounts record employee number for the latest year, so can be used to look at e.g. total counts per sector/location.
-* 55% of accounts contain employee numbers for this and last year, so can be used to look at percent change overall (noting that accounts could have been scraped any time between Feb 2024 and 25).
+At the end of the doc, there are a few notes on the data and thoughts on next steps.
 
-## Headlines
+Each section below has a few notes to highlight results. The sections are:
+
+* **Two interactive maps** showing the most common sectors per 5000m and 1000m hex, by job count. These maps open in new tabs.
+* **Four interactive plots** on this page looking at **percent change in employment** per broad sector (SIC section):
+    + The four SY local authorities compared to core cities (**only firms with 10+ employees**, only groupings with 10 or more firms)
+    + Same as above, but **only firms with fewer than 10 employees**.
+    + SY as a whole, compared to other ITL2s (10+ employees again)
+    + Just South Yorkshire firms with 10+ employees in first timepoint, their percent change in employees in latest timepoint. Hover for firm name.
+
+
+
+## Maps: sectors with the most employees per hex (5000m and 1000m) 
 
 These two hexmaps summarise the national data by highlighting the **most common broad sector in each hex** to give a snapshot of current national industrial structure. **The links will open in new tabs.**
 
@@ -75,6 +85,13 @@ These two hexmaps summarise the national data by highlighting the **most common 
 
 ## Percent change in employment in firms with 10+ employees: Four South Yorkshire local authorities compared to 'core cities' (hover for place names)
 
+Some things that jump out:
+
+* ICT in Barnsley showing especially strong employee growth in last year.
+* Manufacturing seems fairly static everywhere (except Liverpool); SY LAs are spread within that low-change range.
+* Arts/Ent doing well overall though Sheffield at the lower end.
+* Sci/tech generally less employee growth than other core cities.
+* Some specific firms leading to Doncaster education drop.
 
 ```{r, fig-percentempfourplaces}
 #| label: fig-percentempfourplaces
@@ -154,6 +171,13 @@ ggplotly(p, height = 900, tooltip = 'localauthority_name')
 ```
 
 ## Same as above but all firms with fewer than 10 employees
+
+* Within <10 employee manufacturing firms, more % growth than 10+, but again SY local authorities not bucking the overall core city trend [are core cities the right comparators?]
+* A lot of smaller food service firms have been growing in all core cities; SY is within that range
+* Smaller ICT firms generally lower growth
+* Same arts/ents pattern - a spread but Sheffild lower than other core cities
+* Small power firms, sheffield low
+
 
 ```{r, fig-percentempfourplaces_lessthan10}
 #| label: fig-percentempfourplaces_lessthan10
@@ -236,6 +260,9 @@ ggplotly(p, height = 900, tooltip = 'localauthority_name')
 
 ## Percent change in employment in firms with 10+ employees: South Yorkshire MCA compared to other ITL2 zones (hover for place names)
 
+* "Other" growth - need to dig into who those firms are.
+* SY range not showing much extreme; compare to Merseyside ICT and manufacturing both large drops in the last year.
+
 
 ```{r, fig-percentempSY}
 #| label: fig-percentempSY
@@ -277,6 +304,7 @@ Ordered as above, by average SY overall percent change.
 
 * In ICT, one of the top growers this year is **Fourjaw Manufacturing Analytics ltd** - they've put an ICT category as their 1st SIC code, and two sci/tech categories for their 2nd and 3rd choice - but of course they're a prominent firm contributing to manufacturing in the region.
 * The fastest manufacturing grower in the last year, SBD Apparel, had Large growth after SCR 1.5M grant, now shrinking again according to [The Star](https://www.thestar.co.uk/business/sheffield-jobs-powerlifting-firm-sbd-apparel-set-to-make-dozens-redundant-after-move-to-ps9m-new-factory-4725400).
+* The top two growth 'other' firms are [Hothouse Beauty](https://www.linkedin.com/company/hothouse-beauty-ltd/?originalSubdomain=uk) ("development, manufacture and distribution of Toiletries, Beauty and Home Fragrance", 25 to 115 employees in a year) and [Echo Fire and Medical](https://www.echofireandmedical.com/), a 'provider for training, fire & ambulance services' (15 to 49 employees).
 
 
 ```{r, fig-indivfirmsSY}
@@ -331,6 +359,19 @@ ggplotly(p, height = 700, tooltip = 'CompanyName')
 
 ```
 
+## Next steps
 
+Some ideas:
 
+* Other ways to dig into business composition / clustering.
+* More comparison of different 'high growth' measures and what kind of firms those are
+* Business density analysis - some maps done but need something more quantitative.
+* Scrape historic accounts, get better time series. We already have firms' incorporation dates, so can use that too.
+* Get more information per firm, especially financials.
 
+## Data notes
+
+* 74% of accounts used here record employee number for the latest year, so can be used to look at e.g. total counts per sector/location.
+* 55% of accounts contain employee numbers for this and last year, so can be used to look at percent change overall (noting that accounts could have been scraped any time between Feb 2024 and 25).
+
+Code for this quarto doc is [here](https://github.com/DanOlner/companieshouseopen/blob/master/docs/reports/companies_house_southyorkshire_initialreport_March2025.qmd).

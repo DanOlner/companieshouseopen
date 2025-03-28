@@ -546,9 +546,12 @@ empchange.summary <- ch.ec.lessthan10lasty %>%
 sy.change <- ch.ec.10pluslastyr %>% 
   select(CompanyName,CompanyNumber,ITL221NM,localauthority_name,accountcode,incorporationdate_formatted,Employees_thisyear,Employees_lastyear,employee_percentchange, SIC_SECTION_NAME) %>% 
   filter(
-    qg('south y', ITL221NM) 
+    qg('merseyside', ITL221NM) 
+    # qg('south y', ITL221NM) 
     # qg('manuf', SIC_SECTION_NAME)
   )
+
+#sy.change %>% filter(qg('manuf', SIC_SECTION_NAME)) %>% View
 
 #saveRDS(sy.change, 'data/reportdata/SY_allfirms_tenplusemployees_percentchangeemployees.rds')
 
@@ -645,6 +648,10 @@ tm_shape(sq.map) +
 
 #Fourjaw: ICT is first category, do they put themselves in manuf second?
 ch %>% filter(qg('fourjaw', CompanyName)) %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,SICCode.SicText_1:SICCode.SicText_4) %>% st_set_geometry(NULL) %>% View
+
+ch %>% filter(qg('HOTHOUSE BEAUTY LIMITED', CompanyName)) %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,SICCode.SicText_1:SICCode.SicText_4) %>% st_set_geometry(NULL) %>% View
+
+ch %>% filter(qg('echo fire and medical', CompanyName)) %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,SICCode.SicText_1:SICCode.SicText_4) %>% st_set_geometry(NULL) %>% View
 
 
 
