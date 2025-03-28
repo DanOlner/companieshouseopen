@@ -79,7 +79,7 @@ These two hexmaps summarise the national data by highlighting the **most common 
 
 * [Great Britain interactive hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_modal_SICsection_byemployeecount_minfiftyplus_hex5000.html){target="_blank"}. Each 5km-across-hex shows the **modal sector (most common there by job count in most recent accounts)** and only showing hexes with a min of 50 employees. **Hover over the map** for a pop up of the sector there.
 * Patterns to look out for: the **manufacturing doughnut** drawing a circle from Sheffield through Birmingham and Manchester; the **Southern sci-tech areas**, also quite heavily present in Manchester. Also note where there are **not** a min of 50 employees - an interesting picture of the economic landscape.
-* [Higher resolution hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_NORTH_modal_SICsection_byemployeecount_mintenplus_hex1000m.html){target="_blank"} for the North: 1km-across hex, with minimum ten employees per hex.
+* [Higher resolution hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_NORTH_modal_SICsection_byemployeecount_mintenplus_hex1000m.html){target="_blank"} of modal sector for the North: 1km-across hex, with minimum ten employees per hex. Density of South Yorkshire partly visible compared to other places.
 
 
 
