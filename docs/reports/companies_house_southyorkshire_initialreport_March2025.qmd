@@ -58,18 +58,17 @@ orderby <- empchange.summary.itl2 %>%
 
 ## Introduction
 
-These are **some first results** from extracting national-level data from Companies House and setting South Yorkshire in that national context. This report looks *just* at employee numbers, as recorded in Companies House accounts.
+These are **some first results** from extracting **national-level data from Companies House** and **setting South Yorkshire in that national context**. This report looks *just* at employee numbers, as recorded in Companies House accounts.
 
 * 74% of accounts record employee number for the latest year, so can be used to look at e.g. total counts per sector/location.
 * 55% of accounts contain employee numbers for this and last year, so can be used to look at percent change overall (noting that accounts could have been scraped any time between Feb 2024 and 25).
 
 ## Headlines
 
-Here are some hexmaps summarising the national data. The links will open in new tabs.
+These two hexmaps summarise the national data by highlighting the **most common broad sector in each hex** to give a snapshot of current national industrial structure. **The links will open in new tabs.**
 
-* [Great Britain interactive hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_modal_SICsection_byemployeecount_minfiftyplus_hex5000.html). Each 5km-across-hex shows the **modal sector (most common there by job count in most recent accounts)** and only showing hexes with a min of 50 employees. **Hover over the map** for a pop up of the sector there - trying to just use the key here is tricky, far too many categories / bad map! Patterns to look out for: the **manufacturing doughnut** drawing a circle from Sheffield through Birmingham and Manchester; the **Southern sci-tech areas**, also quite heavily present in Manchester. Also note where there are **not** a min of 50 employees - an interesting picture of the economic landscape.
-* [Higher resolution hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_yorkshire_modal_SICsection_byemployeecount_mintenplus_hex1000m.html) just for Yorkshire - 1km-across hex, with minimum ten employees per hex.
-
+* [Great Britain interactive hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_modal_SICsection_byemployeecount_minfiftyplus_hex5000.html){target="_blank"}. Each 5km-across-hex shows the **modal sector (most common there by job count in most recent accounts)** and only showing hexes with a min of 50 employees. **Hover over the map** for a pop up of the sector there - trying to just use the key here is tricky, far too many categories / bad map! Patterns to look out for: the **manufacturing doughnut** drawing a circle from Sheffield through Birmingham and Manchester; the **Southern sci-tech areas**, also quite heavily present in Manchester. Also note where there are **not** a min of 50 employees - an interesting picture of the economic landscape.
+* [Higher resolution hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_NORTH_modal_SICsection_byemployeecount_mintenplus_hex1000m.html){target="_blank"} for the North: 1km-across hex, with minimum ten employees per hex.
 
 
 
@@ -79,6 +78,7 @@ Here are some hexmaps summarising the national data. The links will open in new 
 ```{r, fig-percentempfourplaces}
 #| label: fig-percentempfourplaces
 #| fig-cap: "Percent change in employment for firms with ten+ employees between most recent accounts and previous year - core cities, with SY's four local authorities overlaid. Hover for place name."
+
 
 #See here for fig-responsiveness (non)issue: https://github.com/quarto-dev/quarto-cli/issues/4836
 
