@@ -197,6 +197,10 @@ place <- ch %>% filter(qg('yorkshire',ITL221NM))#gets all four yorkshires
 place <- ch %>% filter(qg('manchester',ITL221NM))
 place <- ch %>% filter(qg('london',ITL221NM))#this will get several!
 
+#The north!
+place <- ch %>% filter(qg('yorkshire|manchester|lancas|mersey',ITL221NM))#gets all four yorkshires
+
+
 #Names all match (predictably - the names in the postcode lookup came from same shapefile!)
 table(unique(place$ITL221NM) %in% itl2$ITL221NM)
 
@@ -279,7 +283,7 @@ tm_shape(
 
 
 
-# MAP: MEDIAN AGE OF FIRM----
+# MAP: MEDIAN AGE OF FIRM / FIRM COUNT----
 
 sq = st_make_grid(ch, cellsize = 1000, square = F)
 
@@ -409,7 +413,8 @@ ch.ec <- ch.ec %>% filter(Employees_thisyear < 7000 & Employees_lastyear < 7000)
 #Right some crude digging first, SIC section level
 #Growth rate change for 10+ employee firms
 ch.ec.10pluslastyr <- ch.ec %>% 
-  filter(Employees_lastyear >= 10) %>% 
+  filter(Employees_lastyear >= 10) %>%
+  # filter(Employees_lastyear < 10) %>% 
   mutate(employee_percentchange = percent_change(Employees_lastyear,Employees_thisyear))
 
 View(ch.ec.10pluslastyr %>% select(Employees_lastyear,Employees_thisyear,employee_percentchange))
@@ -430,8 +435,9 @@ empchange.summary <- ch.ec.10pluslastyr %>%
   filter(!is.na(SIC_SECTION_NAME))
 
 #Save pre-processed summary to be used in report
-saveRDS(empchange.summary,'data/reportdata/ch_employmentpercentchange_itl2.rds')
-
+# saveRDS(empchange.summary,'data/reportdata/ch_employmentpercentchange_itl2.rds')
+# empchange.summary <- readRDS('data/reportdata/ch_employmentpercentchange_itl2.rds')
+# 
 
 #Plot
 p <- ggplot(
@@ -466,6 +472,9 @@ empchange.summary <- ch.ec.10pluslastyr %>%
     firmcount = n()
   ) %>% 
   filter(!is.na(SIC_SECTION_NAME))
+
+#Save pre-processed summary to be used in report
+# saveRDS(empchange.summary,'data/reportdata/ch_employmentpercentchange_4places.rds')
 
 
 
@@ -507,6 +516,25 @@ ch.ec.10pluslastyr %>% filter(localauthority_name == 'Doncaster', qg('educ',SIC_
 
 
 
+#Save one for firms with fewer than 10 employees...
+ch.ec.lessthan10lasty <- ch.ec %>% 
+  filter(Employees_lastyear < 10) %>%
+  mutate(employee_percentchange = percent_change(Employees_lastyear,Employees_thisyear))
+
+empchange.summary <- ch.ec.lessthan10lasty %>% 
+  st_set_geometry(NULL) %>% 
+  filter(!qg('households|extraterr|mining', SIC_SECTION_NAME)) %>% #sections to leave out when summing; keeping separate to make change easier
+  group_by(localauthority_name,SIC_SECTION_NAME) %>%
+  summarise(
+    total_employmentlastyear = sum(Employees_lastyear),
+    total_employmentthisyear = sum(Employees_thisyear),
+    employment_percentchange = percent_change(total_employmentlastyear,total_employmentthisyear),
+    firmcount = n()
+  ) %>% 
+  filter(!is.na(SIC_SECTION_NAME))
+
+#Save pre-processed summary to be used in report
+# saveRDS(empchange.summary,'data/reportdata/ch_employmentpercentchange_4places_fewerthan10employees.rds')
 
 
 
@@ -521,6 +549,8 @@ sy.change <- ch.ec.10pluslastyr %>%
     qg('south y', ITL221NM) 
     # qg('manuf', SIC_SECTION_NAME)
   )
+
+#saveRDS(sy.change, 'data/reportdata/SY_allfirms_tenplusemployees_percentchangeemployees.rds')
 
 #Interesting digging into the top grower there, SBD Apparel. Large growth after SCR 1.5M grant, now shrinking again?
 #https://www.thestar.co.uk/business/sheffield-jobs-powerlifting-firm-sbd-apparel-set-to-make-dozens-redundant-after-move-to-ps9m-new-factory-4725400
@@ -550,17 +580,17 @@ sq = st_make_grid(ch, cellsize = 1000, square = F)
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
 
 #Intersection... as we're summing all, keep firms all firms with at least one employee in both time periods
-# overlay <- st_intersection(ch.ec,sq)
+overlay <- st_intersection(ch.ec,sq)
 
 #Try some other sectors
-overlay <- st_intersection(ch.ec %>% filter(qg('manuf',SIC_SECTION_NAME)),sq)
+# overlay <- st_intersection(ch.ec %>% filter(qg('manuf',SIC_SECTION_NAME)),sq)
 # overlay <- st_intersection(ch.ec %>% filter(qg('information',SIC_SECTION_NAME)),sq)
 # overlay <- st_intersection(ch.ec %>% filter(qg('public',SIC_SECTION_NAME)),sq)
 
 #And places
 overlay <- st_intersection(ch.ec %>% filter(
   # qg('information',SIC_SECTION_NAME),
-  qg('yorkshire',ITL221NM)
+  qg('yorkshire|manchester',ITL221NM)
   ),
   sq)
 
@@ -611,8 +641,10 @@ tm_shape(sq.map) +
 
 
 
+# LOOK AT SOME FIRMS----
 
-
+#Fourjaw: ICT is first category, do they put themselves in manuf second?
+ch %>% filter(qg('fourjaw', CompanyName)) %>% select(CompanyName,RegAddress.AddressLine1,incorporationdate_formatted,localauthority_name,Employees_thisyear,Employees_lastyear,SICCode.SicText_1:SICCode.SicText_4) %>% st_set_geometry(NULL) %>% View
 
 
 

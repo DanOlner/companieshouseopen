@@ -1,5 +1,5 @@
 ---
-title: "ONS Business Demography dataset 2017-22: what does it say about South Yorkshire?"
+title: "Companies House data for Feb 2024-25 - initial results placing South Yorkshire in national context"
 author: "Dan Olner"
 format: 
   html:
@@ -8,15 +8,327 @@ execute:
   echo: false
   message: false
   warning: false
+fig-responsive: false
 ---
 
 ```{r, setup}
 library(tidyverse)
 library(plotly)
+source('../../functions.R')
+
+#Load ITL2 employment change summary first, to get factor order level
+empchange.summary.itl2 <- readRDS('../../data/reportdata/ch_employmentpercentchange_itl2.rds')
+
+empchange.summary.itl2 <- empchange.summary.itl2 %>% mutate(
+    SIC_SECTION_REDUCED = case_when(
+      # grepl('admin',SIC_SECTION_NAME,ignore.case = T) ~ 'Admin',
+      grepl('agri',SIC_SECTION_NAME,ignore.case = T) ~ 'Agri',
+      grepl('electr',SIC_SECTION_NAME,ignore.case = T) ~ 'power',
+      grepl('information',SIC_SECTION_NAME,ignore.case = T) ~ 'ICT',
+      grepl('financial',SIC_SECTION_NAME,ignore.case = T) ~ 'finance',
+      grepl('administrative and support',SIC_SECTION_NAME,ignore.case = T) ~ 'admin/support',
+      grepl('administration and defence',SIC_SECTION_NAME,ignore.case = T) ~ 'public admin',
+      grepl('manuf',SIC_SECTION_NAME,ignore.case = T) ~ 'Manuf',
+      grepl('mining',SIC_SECTION_NAME,ignore.case = T) ~ 'Mining',
+      grepl('other',SIC_SECTION_NAME,ignore.case = T) ~ 'other',
+      grepl('scientific',SIC_SECTION_NAME,ignore.case = T) ~ 'Scientific',
+      grepl('real estate',SIC_SECTION_NAME,ignore.case = T) ~ 'Real est',
+      grepl('transport',SIC_SECTION_NAME,ignore.case = T) ~ 'Transport',
+      grepl('water',SIC_SECTION_NAME,ignore.case = T) ~ 'Water',
+      grepl('entertainment',SIC_SECTION_NAME,ignore.case = T) ~ 'Entertainment',
+      grepl('human health',SIC_SECTION_NAME,ignore.case = T) ~ 'Health/soc',
+      grepl('food service activities',SIC_SECTION_NAME,ignore.case = T) ~ 'Food/service',
+      grepl('wholesale',SIC_SECTION_NAME,ignore.case = T) ~ 'Retail',
+      .default = SIC_SECTION_NAME
+    )
+  )
+
+#Order by percent change per sector in SY
+orderby <- empchange.summary.itl2 %>% 
+  ungroup() %>%
+  filter(qg('south y',ITL221NM)) %>%
+  select(SIC_SECTION_REDUCED,employment_percentchange) %>% 
+  arrange(employment_percentchange) %>% 
+  pull(SIC_SECTION_REDUCED)
+
+
 
 ```
 
 
+## Introduction
+
+These are **some first results** from extracting national-level data from Companies House and setting South Yorkshire in that national context. This report looks *just* at employee numbers, as recorded in Companies House accounts.
+
+* 74% of accounts record employee number for the latest year, so can be used to look at e.g. total counts per sector/location.
+* 55% of accounts contain employee numbers for this and last year, so can be used to look at percent change overall (noting that accounts could have been scraped any time between Feb 2024 and 25).
+
+## Headlines
+
+Here are some hexmaps summarising the national data. The links will open in new tabs.
+
+* [Great Britain interactive hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_modal_SICsection_byemployeecount_minfiftyplus_hex5000.html). Each 5km-across-hex shows the **modal sector (most common there by job count in most recent accounts)** and only showing hexes with a min of 50 employees. **Hover over the map** for a pop up of the sector there - trying to just use the key here is tricky, far too many categories / bad map! Patterns to look out for: the **manufacturing doughnut** drawing a circle from Sheffield through Birmingham and Manchester; the **Southern sci-tech areas**, also quite heavily present in Manchester. Also note where there are **not** a min of 50 employees - an interesting picture of the economic landscape.
+* [Higher resolution hexmap](https://danolner.github.io/companieshouseopen/maps/companieshouse_yorkshire_modal_SICsection_byemployeecount_mintenplus_hex1000m.html) just for Yorkshire - 1km-across hex, with minimum ten employees per hex.
+
+
+
+
+## Percent change in employment in firms with 10+ employees: Four South Yorkshire local authorities compared to 'core cities' (hover for place names)
+
+
+```{r, fig-percentempfourplaces}
+#| label: fig-percentempfourplaces
+#| fig-cap: "Percent change in employment for firms with ten+ employees between most recent accounts and previous year - core cities, with SY's four local authorities overlaid. Hover for place name."
+
+#See here for fig-responsiveness (non)issue: https://github.com/quarto-dev/quarto-cli/issues/4836
+
+#Data pre-processed here (1st draft plot output also)
+#https://github.com/DanOlner/companieshouseopen/blob/fb81a5fe6be18bf3d19ab0ca77ac97f28dfb4fc9/testcode/initial_datadigging.R#L401
+
+empchange.summary.corecities <- readRDS('../../data/reportdata/ch_employmentpercentchange_4places.rds')
+
+empchange.summary.corecities <- empchange.summary.corecities %>% mutate(
+    SIC_SECTION_REDUCED = case_when(
+      # grepl('admin',SIC_SECTION_NAME,ignore.case = T) ~ 'Admin',
+      grepl('agri',SIC_SECTION_NAME,ignore.case = T) ~ 'Agri',
+      grepl('electr',SIC_SECTION_NAME,ignore.case = T) ~ 'power',
+      grepl('information',SIC_SECTION_NAME,ignore.case = T) ~ 'ICT',
+      grepl('financial',SIC_SECTION_NAME,ignore.case = T) ~ 'finance',
+      grepl('administrative and support',SIC_SECTION_NAME,ignore.case = T) ~ 'admin/support',
+      grepl('administration and defence',SIC_SECTION_NAME,ignore.case = T) ~ 'public admin',
+      grepl('manuf',SIC_SECTION_NAME,ignore.case = T) ~ 'Manuf',
+      grepl('mining',SIC_SECTION_NAME,ignore.case = T) ~ 'Mining',
+      grepl('other',SIC_SECTION_NAME,ignore.case = T) ~ 'other',
+      grepl('scientific',SIC_SECTION_NAME,ignore.case = T) ~ 'Scientific',
+      grepl('real estate',SIC_SECTION_NAME,ignore.case = T) ~ 'Real est',
+      grepl('transport',SIC_SECTION_NAME,ignore.case = T) ~ 'Transport',
+      grepl('water',SIC_SECTION_NAME,ignore.case = T) ~ 'Water',
+      grepl('entertainment',SIC_SECTION_NAME,ignore.case = T) ~ 'Entertainment',
+      grepl('human health',SIC_SECTION_NAME,ignore.case = T) ~ 'Health/soc',
+      grepl('food service activities',SIC_SECTION_NAME,ignore.case = T) ~ 'Food/service',
+      grepl('wholesale',SIC_SECTION_NAME,ignore.case = T) ~ 'Retail',
+      .default = SIC_SECTION_NAME
+    )
+  )
+
+#Order by SY ITL2 % change from above
+empchange.summary.corecities <- empchange.summary.corecities %>% 
+  mutate(
+    SIC_SECTION_REDUCED = factor(SIC_SECTION_REDUCED, levels = orderby)
+    )
+
+
+p <- ggplot() +
+  geom_point(
+    position = position_nudge(y = 0.2),
+    # data = empchange.summary.corecities %>% filter(firmcount > 9),
+    data = empchange.summary.corecities %>% filter(
+      firmcount > 9,
+      qg('Belfast|Birmingham|Bristol|Cardiff|Glasgow|Leeds|Liverpool|Manchester|Tyne|Nottingham', localauthority_name)#just core cities (minus four places below)
+      ),
+    aes(y = SIC_SECTION_REDUCED, x = employment_percentchange, group = localauthority_name),
+    alpha = 0.5)
+
+#Add four places
+p <- p + 
+  geom_point(
+    position = position_nudge(y = -0.2),
+    data = empchange.summary.corecities %>% filter(firmcount > 9, qg('sheff|rotherham|doncaster|barnsley',localauthority_name)),
+    aes(y = SIC_SECTION_REDUCED, x = employment_percentchange, colour = localauthority_name),
+    # aes(y = fct_reorder(SIC_SECTION_REDUCED, employment_percentchange), x = employment_percentchange, colour = localauthority_name),
+    size = 7, shape = 17) +
+  scale_colour_brewer(palette = 'Paired', direction = 1, guide = guide_legend(title = NULL)) +
+  coord_cartesian(xlim = c(-25,25)) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  # theme(legend.title=element_blank()) +
+  ylab("") 
+
+
+#p
+
+# ggplotly(p, width = 800, height = 900, tooltip = 'localauthority_name')
+ggplotly(p, height = 900, tooltip = 'localauthority_name')
+
+
+```
+
+## Same as above but all firms with fewer than 10 employees
+
+```{r, fig-percentempfourplaces_lessthan10}
+#| label: fig-percentempfourplaces_lessthan10
+#| fig-cap: "Percent change in employment for firms with fewer than 10 employees, between most recent accounts and previous year - core cities, with SY's four local authorities overlaid. Hover for place name."
+
+#See here for fig-responsiveness (non)issue: https://github.com/quarto-dev/quarto-cli/issues/4836
+
+#Data pre-processed here (1st draft plot output also)
+#https://github.com/DanOlner/companieshouseopen/blob/fb81a5fe6be18bf3d19ab0ca77ac97f28dfb4fc9/testcode/initial_datadigging.R#L401
+
+empchange.summary.corecities <- readRDS('../../data/reportdata/ch_employmentpercentchange_4places_fewerthan10employees.rds')
+
+empchange.summary.corecities <- empchange.summary.corecities %>% mutate(
+    SIC_SECTION_REDUCED = case_when(
+      # grepl('admin',SIC_SECTION_NAME,ignore.case = T) ~ 'Admin',
+      grepl('agri',SIC_SECTION_NAME,ignore.case = T) ~ 'Agri',
+      grepl('electr',SIC_SECTION_NAME,ignore.case = T) ~ 'power',
+      grepl('information',SIC_SECTION_NAME,ignore.case = T) ~ 'ICT',
+      grepl('financial',SIC_SECTION_NAME,ignore.case = T) ~ 'finance',
+      grepl('administrative and support',SIC_SECTION_NAME,ignore.case = T) ~ 'admin/support',
+      grepl('administration and defence',SIC_SECTION_NAME,ignore.case = T) ~ 'public admin',
+      grepl('manuf',SIC_SECTION_NAME,ignore.case = T) ~ 'Manuf',
+      grepl('mining',SIC_SECTION_NAME,ignore.case = T) ~ 'Mining',
+      grepl('other',SIC_SECTION_NAME,ignore.case = T) ~ 'other',
+      grepl('scientific',SIC_SECTION_NAME,ignore.case = T) ~ 'Scientific',
+      grepl('real estate',SIC_SECTION_NAME,ignore.case = T) ~ 'Real est',
+      grepl('transport',SIC_SECTION_NAME,ignore.case = T) ~ 'Transport',
+      grepl('water',SIC_SECTION_NAME,ignore.case = T) ~ 'Water',
+      grepl('entertainment',SIC_SECTION_NAME,ignore.case = T) ~ 'Entertainment',
+      grepl('human health',SIC_SECTION_NAME,ignore.case = T) ~ 'Health/soc',
+      grepl('food service activities',SIC_SECTION_NAME,ignore.case = T) ~ 'Food/service',
+      grepl('wholesale',SIC_SECTION_NAME,ignore.case = T) ~ 'Retail',
+      .default = SIC_SECTION_NAME
+    )
+  )
+
+#Order by SY ITL2 % change from above
+empchange.summary.corecities <- empchange.summary.corecities %>% 
+  mutate(
+    SIC_SECTION_REDUCED = factor(SIC_SECTION_REDUCED, levels = orderby)
+    )
+
+
+p <- ggplot() +
+  geom_point(
+    position = position_nudge(y = 0.2),
+    # data = empchange.summary.corecities %>% filter(firmcount > 9),
+    data = empchange.summary.corecities %>% filter(
+      firmcount > 9,
+      qg('Belfast|Birmingham|Bristol|Cardiff|Glasgow|Leeds|Liverpool|Manchester|Tyne|Nottingham', localauthority_name)#just core cities (minus four places below)
+      ),
+    aes(y = SIC_SECTION_REDUCED, x = employment_percentchange, group = localauthority_name),
+    alpha = 0.5)
+
+#Add four places
+p <- p + 
+  geom_point(
+    position = position_nudge(y = -0.2),
+    data = empchange.summary.corecities %>% filter(firmcount > 9, qg('sheff|rotherham|doncaster|barnsley',localauthority_name)),
+    aes(y = SIC_SECTION_REDUCED, x = employment_percentchange, colour = localauthority_name),
+    # aes(y = fct_reorder(SIC_SECTION_REDUCED, employment_percentchange), x = employment_percentchange, colour = localauthority_name),
+    size = 7, shape = 17) +
+  scale_colour_brewer(palette = 'Paired', direction = 1, guide = guide_legend(title = NULL)) +
+  coord_cartesian(xlim = c(-25,25)) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  # theme(legend.title=element_blank()) +
+  ylab("") 
+
+
+#p
+
+# ggplotly(p, width = 800, height = 900, tooltip = 'localauthority_name')
+ggplotly(p, height = 900, tooltip = 'localauthority_name')
+
+
+```
+
+
+
+
+## Percent change in employment in firms with 10+ employees: South Yorkshire MCA compared to other ITL2 zones (hover for place names)
+
+
+```{r, fig-percentempSY}
+#| label: fig-percentempSY
+#| fig-cap: "Percent change in employment for firms with ten+ employees between most recent accounts and previous year - ITL2 zones, with SY overlaid. Hover for place name."
+
+#Data pre-processed here (1st draft plot output also)
+#https://github.com/DanOlner/companieshouseopen/blob/fb81a5fe6be18bf3d19ab0ca77ac97f28dfb4fc9/testcode/initial_datadigging.R#L401
+
+#Loaded above to get order to use for four places
+
+#order factor by that
+empchange.summary.itl2 <- empchange.summary.itl2 %>% 
+  mutate(
+    SIC_SECTION_REDUCED = factor(SIC_SECTION_REDUCED, levels = orderby)
+    )
+
+
+p <- ggplot(
+  empchange.summary.itl2 %>% filter(firmcount > 9) %>%  mutate(SY = ITL221NM == 'South Yorkshire'), 
+  # empchange.summary.itl2 %>% filter(firmcount > 9) %>%  mutate(SY = ITL221NM == 'South Yorkshire') %>% mutate(SIC_SECTION_REDUCED = fct_reorder(SIC_SECTION_REDUCED, employment_percentchange)),
+  aes(y = SIC_SECTION_REDUCED, x = employment_percentchange, group = ITL221NM, colour = SY, size = SY, alpha = SY)) +
+  geom_jitter(width = 0.001, height = 0.1) +
+  scale_color_manual(values = c('black','red')) +
+  scale_alpha_manual(values = c(0.3,1)) +
+  coord_cartesian(xlim = c(-25,25)) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  ylab("") 
+  
+# ggplotly(p, width = 1200, height = 700, tooltip = 'ITL221NM')
+ggplotly(p, height = 700, tooltip = 'ITL221NM')
+
+
+```
+
+
+## Just for South Yorkshire, individual firms with 10+ employees, percent employee change from last accounts (hover for firm names)
+
+Ordered as above, by average SY overall percent change.
+
+* In ICT, one of the top growers this year is **Fourjaw Manufacturing Analytics ltd** - they've put an ICT category as their 1st SIC code, and two sci/tech categories for their 2nd and 3rd choice - but of course they're a prominent firm contributing to manufacturing in the region.
+* The fastest manufacturing grower in the last year, SBD Apparel, had Large growth after SCR 1.5M grant, now shrinking again according to [The Star](https://www.thestar.co.uk/business/sheffield-jobs-powerlifting-firm-sbd-apparel-set-to-make-dozens-redundant-after-move-to-ps9m-new-factory-4725400).
+
+
+```{r, fig-indivfirmsSY}
+#| label: fig-indivfirmsSY
+#| fig-cap: "Percent change in employment between most recent accounts and previous year, all SY firms with 10+ employees, hover for firm name."
+
+sy.change <- readRDS('../../data/reportdata/SY_allfirms_tenplusemployees_percentchangeemployees.rds')
+
+sy.change <- sy.change %>% mutate(
+    SIC_SECTION_REDUCED = case_when(
+      # grepl('admin',SIC_SECTION_NAME,ignore.case = T) ~ 'Admin',
+      grepl('agri',SIC_SECTION_NAME,ignore.case = T) ~ 'Agri',
+      grepl('electr',SIC_SECTION_NAME,ignore.case = T) ~ 'power',
+      grepl('information',SIC_SECTION_NAME,ignore.case = T) ~ 'ICT',
+      grepl('financial',SIC_SECTION_NAME,ignore.case = T) ~ 'finance',
+      grepl('administrative and support',SIC_SECTION_NAME,ignore.case = T) ~ 'admin/support',
+      grepl('administration and defence',SIC_SECTION_NAME,ignore.case = T) ~ 'public admin',
+      grepl('manuf',SIC_SECTION_NAME,ignore.case = T) ~ 'Manuf',
+      grepl('mining',SIC_SECTION_NAME,ignore.case = T) ~ 'Mining',
+      grepl('other',SIC_SECTION_NAME,ignore.case = T) ~ 'other',
+      grepl('scientific',SIC_SECTION_NAME,ignore.case = T) ~ 'Scientific',
+      grepl('real estate',SIC_SECTION_NAME,ignore.case = T) ~ 'Real est',
+      grepl('transport',SIC_SECTION_NAME,ignore.case = T) ~ 'Transport',
+      grepl('water',SIC_SECTION_NAME,ignore.case = T) ~ 'Water',
+      grepl('entertainment',SIC_SECTION_NAME,ignore.case = T) ~ 'Entertainment',
+      grepl('human health',SIC_SECTION_NAME,ignore.case = T) ~ 'Health/soc',
+      grepl('food service activities',SIC_SECTION_NAME,ignore.case = T) ~ 'Food/service',
+      grepl('wholesale',SIC_SECTION_NAME,ignore.case = T) ~ 'Retail',
+      .default = SIC_SECTION_NAME
+    )
+  )
+
+
+
+sy.change <- sy.change %>% 
+  mutate(
+    SIC_SECTION_REDUCED = factor(SIC_SECTION_REDUCED, levels = orderby)
+    )
+
+
+
+#Percent change vs sector for SY?
+p <- ggplot(sy.change,aes(y = SIC_SECTION_REDUCED, x = employee_percentchange, group = CompanyName)) +
+  geom_jitter(height = 0.1, alpha = 0.3) +
+  geom_vline(xintercept = 0, alpha = 0.5, colour = 'green') +
+  ylab("") 
+  
+
+ggplotly(p, height = 700, tooltip = 'CompanyName')
+
+
+
+```
 
 
 
