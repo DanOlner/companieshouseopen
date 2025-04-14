@@ -5,8 +5,6 @@ options(scipen = 99)
 source('functions.R')
 
 
-
-
 # CHECK ON POSTCODE MATCHING TO CH LIVE LIST - WHAT PLACES DIDN'T MATCH?----
 
 #Looking at the entire current live list and which companies' postcodes found no match
@@ -145,6 +143,87 @@ g(x)
 
 #Taxonomies may have changed over time, so what's as common as we can get it?
 #https://resources.companieshouse.gov.uk/infoAndGuide/faq/accountsDataProduct.shtml
+
+#Gripple as example
+doc <- read_xml("local/test_accounts/01772901_aa_2024-09-12.xhtml")
+
+# Define namespaces dynamically
+ns <- xml_ns(doc)
+
+# Extract all <ix:nonNumeric> and <ix:nonFraction> tags
+non_numeric_nodes <- xml_find_all(doc, "//ix:nonNumeric", ns = ns)
+non_fraction_nodes <- xml_find_all(doc, "//ix:nonFraction", ns = ns)
+
+# Combine the text content of these nodes into a single vector
+all_tags <- c(
+  xml_text(non_numeric_nodes),
+  xml_text(non_fraction_nodes)
+)
+
+# Print the resulting vector
+print(all_tags)
+
+# Optional: To inspect the corresponding tag names and attributes
+all_tags_with_names <- c(
+  paste("Tag Name:", xml_name(non_numeric_nodes), "Value:", xml_text(non_numeric_nodes)),
+  paste("Tag Name:", xml_name(non_fraction_nodes), "Value:", xml_text(non_fraction_nodes))
+)
+
+print(all_tags_with_names)
+
+
+
+#See what the names of the tags are, matched against values
+#TODO: search several accounts, look for what frequencies we get for different iXBRL tags
+doc <- read_xml("local/test_accounts/01772901_aa_2024-09-12.xhtml")
+
+# Define namespaces dynamically
+ns <- xml_ns(doc)
+
+# Extract all <ix:nonNumeric> and <ix:nonFraction> nodes
+non_numeric_nodes <- xml_find_all(doc, "//ix:nonNumeric", ns = ns)
+non_fraction_nodes <- xml_find_all(doc, "//ix:nonFraction", ns = ns)
+
+# Extract the 'name' attribute from these nodes
+non_numeric_names <- xml_attr(non_numeric_nodes, "name")
+non_fraction_names <- xml_attr(non_fraction_nodes, "name")
+
+# Combine into a single vector
+all_names <- c(non_numeric_names, non_fraction_names)
+
+# Remove any NA values (nodes without a 'name' attribute)
+all_names <- all_names[!is.na(all_names)]
+
+# Print the resulting vector of names
+print(all_names)
+
+# Optional: Combine names with their text content for detailed inspection
+all_details <- c(
+  paste("Name:", non_numeric_names, "Value:", xml_text(non_numeric_nodes)),
+  paste("Name:", non_fraction_names, "Value:", xml_text(non_fraction_nodes))
+)
+
+all_details %>% as.data.frame() %>% View
+
+# Remove entries where the name is NA
+all_details <- all_details[!is.na(all_names)]
+
+print(all_details)
+
+all_details[grepl('profit',all_details,ignore.case = T)]
+
+
+
+#Dataframe version please
+details.df <- bind_rows(
+    data.frame(
+      name = non_numeric_names, value = xml_text(non_numeric_nodes)
+      ),
+    data.frame(
+    
+    name = non_fraction_names, value = xml_text(non_fraction_nodes)
+    )
+)
 
 
 
