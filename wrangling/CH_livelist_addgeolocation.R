@@ -26,6 +26,7 @@ ch$Postcode_formatted <- toupper(ch$RegAddress.PostCode) %>% gsub(' ', '', .)
 # table(pc$Postcode_formatted %in% ch$Postcode_formatted)
 
 table(ch$RegAddress.PostCode %in% pc$Postcode)
+table(ch$RegAddress.PostCode %in% pc$Postcode) %>% prop.table() * 100
 table(ch$Postcode_formatted %in% pc$Postcode_formatted)
 
 #Add postcode geo-location into the live list
