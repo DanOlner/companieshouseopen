@@ -20,6 +20,11 @@ zip_links <- xml_attr(
   "href"
 )
 
+
+#Set global timeout to very bigly indeed
+#ten hours per file should do it!
+options(timeout = 36000)
+
 #Temporary zip download
 #Via https://stackoverflow.com/a/79311678/5023561
 #Zip is around 0.5gb

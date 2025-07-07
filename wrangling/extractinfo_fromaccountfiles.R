@@ -14,7 +14,7 @@ allzips <- list.files('local/monthly_companieshouse_accounts', '*.zip', full.nam
 #(Delete files if they want replacing)
 extracted_files <- list.files('local/account_extracts', '*.rds', full.names = F) %>% gsub('.rds','',.)
 
-#It'll be doing this in alphatical not date order
+#It'll be doing this in alphabetical not date order
 #That doesn't matter, dates are processed later
 for(zipname in allzips){
   
