@@ -2,6 +2,18 @@
 #NOTE: it's possible to access account files directly from the zips, but it's much slower doing it that way
 #For extracting from national data, better/faster to unzip each file then delete after extraction, and repeat
 library(tidyverse)
+library(furrr)
+library(progressr)
+source('functions.R')
+
+#Set up parallel plan
+plan(multisession) # or multicore on Unix/Mac
+
+#Set up progressr handler
+handlers(global = TRUE)
+handlers("txtprogressbar")  # or "progress" for a nicer one
+
+
 
 #Create save folder if it's not present already
 if (!dir.exists('local/account_extracts')) dir.create('local/account_extracts')
@@ -38,6 +50,10 @@ for(zipname in allzips){
     
     allaccounts <- list.files(extractedaccounts_location, full.names = T)
     
+    #remove any nested zip files for now - these are CICs.
+    #todo: process CIC zip files
+    allaccounts <- allaccounts[!qg('.zip',allaccounts)]
+    
     #(For getting names if extracting directly from unzipped folder, returning list)
     # zip_contents <- unzip(zipname, list = TRUE)
     # accounts <- zip_contents %>% 
@@ -65,12 +81,20 @@ for(zipname in allzips){
     cat('Extracting account info for',length(allaccounts),'accounts ...\n')
     
     #Extract data from each account, put into dataframe
-    account.extract <- 
-      # map(allaccounts[1:1000],#test with small number
-      map(allaccounts,
-          get_accounts_data,
-          # ziplocation = zipname,#Only if extracting directly from zip
-          .progress = T) %>% bind_rows
+    # account.extract <- 
+    #   # map(allaccounts[1:1000],#test with small number
+    #   map(allaccounts,
+    #       get_accounts_data,
+    #       # ziplocation = zipname,#Only if extracting directly from zip
+    #       .progress = T) %>% bind_rows
+    
+    #Parallel version
+    account.extract <- with_progress({
+      # future_map(allaccounts[1:1000],#test with small number
+      future_map(allaccounts,
+                 get_accounts_data,
+                 .progress = TRUE) %>% bind_rows()
+    })
     
     
     #Add in company number / account number (same order)
