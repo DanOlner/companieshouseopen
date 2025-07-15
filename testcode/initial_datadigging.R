@@ -13,7 +13,7 @@ source('functions.R')
 #c4a_gui()
 
 #The joined CH live list, geocoded with LA and ITL2 lookup, and account extracts added
-ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined.rds')
+ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_July2025.rds')
 #2.48gb in version as of March 2025
 #pryr::object_size(ch)
 
@@ -56,7 +56,8 @@ ch <- ch %>%
 
 #Look at some of the possibly-too-big values
 #Only ~400 of those in total for the last year's accounts
-toobig <- ch %>% st_set_geometry(NULL) %>% select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% filter(employees_count > 1000)
+#More than 2000 filters out what look like obviously waaay too high and also dates in the employee count field
+toobig <- ch %>% st_set_geometry(NULL) %>% select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% filter(employees_count > 2000)
 # 
 ggplot(
   toobig,
@@ -65,6 +66,18 @@ ggplot(
 
 #Just in SY
 toobig %>% filter(qg('south y',ITL221NM)) %>% View
+
+
+#Filter out obviously too large values
+#Match on company number and account code (date of submission)
+ch = ch %>% filter(!paste0(CompanyNumber,accountcode) %in% paste0(toobig$CompanyNumber,toobig$accountcode))
+
+#Save that version...
+saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_July2025.rds')
+
+ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_July2025.rds')
+
+
 
 
 #AVERAGE AGE OF FIRMS IN ITL2 REGIONS PER SIC SECTION----
@@ -164,6 +177,8 @@ sq.modal <- sq %>%
 itl2 <- st_read('../RegionalEcons_web/data/ITL_geographies/International_Territorial_Level_2_January_2021_UK_BFE_V2_2022_-4735199360818908762/ITL2_JAN_2021_UK_BFE_V2.shp') %>% st_simplify(preserveTopology = T, dTolerance = 100)
 
 
+lad <- st_read("~/Dropbox/MapPolygons/UK/2024/Local_Authority_Districts_May_2024_Boundaries_UK_BFC/LAD_MAY_2024_UK_BFC.shp") %>% st_simplify(preserveTopology = T, dTolerance = 100)
+
 #https://stackoverflow.com/a/33144808/5023561
 #Make different pastel-ish colours
 n <- length(unique(sq.modal$modal_sector))
@@ -180,11 +195,14 @@ tm_shape(
   ) +
   tm_polygons('modal_sector', fill.scale = tm_scale_categorical(values = col_vector), id="modal_sector", col_alpha = 0, fill_alpha = 0.65) +
   # tm_view(set.view = c(7, 51, 4)) +
+tm_shape(lad) +
+  tm_borders(col = 'black', lwd = 1, fill_alpha = 0.3) +
 tm_shape(itl2) +
-  tm_borders(col = 'black') +
-  tm_view(set_view = c(-1.598452,52.740283,8))
+  tm_borders(col = 'black', lwd = 2) +
+  tm_view(set_view = c(-1.7551571072139232,53.79326048352635,9))#centred on Bradford
+  # tm_view(set_view = c(-1.598452,52.740283,8))
   # tm_view(bbox = "England")
-  
+ 
   
 
 
