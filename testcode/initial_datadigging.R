@@ -13,7 +13,8 @@ source('functions.R')
 #c4a_gui()
 
 #The joined CH live list, geocoded with LA and ITL2 lookup, and account extracts added
-ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_July2025.rds')
+# ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_July2025.rds')
+ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
 #2.48gb in version as of March 2025
 #pryr::object_size(ch)
 
@@ -57,8 +58,18 @@ ch <- ch %>%
 #Look at some of the possibly-too-big values
 #Only ~400 of those in total for the last year's accounts
 #More than 2000 filters out what look like obviously waaay too high and also dates in the employee count field
-toobig <- ch %>% st_set_geometry(NULL) %>% select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% filter(employees_count > 2000)
-# 
+toobig <- ch %>% st_set_geometry(NULL) %>% 
+  select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% 
+  pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% 
+  filter(employees_count > 2000)
+
+#Look at this and last year next to each other...
+# toobigwide = ch %>% st_set_geometry(NULL) %>% 
+#   select(CompanyName,CompanyNumber,accountcode,Employees_thisyear,Employees_lastyear,ITL221NM) %>% 
+#   # pivot_longer(Employees_thisyear:Employees_lastyear, names_to = 'employees_year', values_to = 'employees_count') %>% 
+#   filter(Employees_thisyear > 2000) %>% 
+#   arrange(-Employees_thisyear)
+ 
 ggplot(
   toobig,
   aes(x = employees_count, y = employees_year)) +
@@ -73,9 +84,9 @@ toobig %>% filter(qg('south y',ITL221NM)) %>% View
 ch = ch %>% filter(!paste0(CompanyNumber,accountcode) %in% paste0(toobig$CompanyNumber,toobig$accountcode))
 
 #Save that version...
-saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_July2025.rds')
+saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
 
-ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_July2025.rds')
+ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
 
 
 
