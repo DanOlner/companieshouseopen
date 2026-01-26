@@ -211,6 +211,27 @@ guess_domain <- function(company_name) {
 }
 
 
+return_all_existing_candidate_domains <- function(company_name) {
+  candidates <- generate_domain_candidates(company_name)
+
+  cat(company_name, '\n')
+
+  existing <- c()
+  for (domain in candidates) {
+    if (domain_exists(domain)) {
+      existing <- c(existing, domain)
+    }
+  }
+
+  if (length(existing) == 0) {
+    return(NA_character_)
+  }
+
+  return(existing)
+}
+
+
+
 # Check website contents----
 
 
@@ -284,4 +305,108 @@ get_clean_text <- function(domain) {
 
 
 
+# Check if postcode is in a website's main or contact page
+# check_for_postcode <- function(website, postcode, ...) {
+#   
+#   x <- get_websitefrontpage(website) %>%  
+#     toupper() %>% 
+#     gsub(' ', '', .)
+#   
+#   postcodepresent = qg(postcode, x)[1]
+#   
+#   # If false, let's look for a contact page
+#   if(!postcodepresent){
+#     
+#     cat('Trying contact page...\n')
+#     
+#     doc <- read_html(paste0('https://',website))
+#     
+#     all_links <- xml_attr(
+#       xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
+#       "href"
+#     )
+#     
+#     if(!is.null(all_links)){
+#       
+#       contactpage = all_links[qg('contact', all_links)][1]
+#       
+#       # Check if it's a relative path
+#       if(str_sub(contactpage,1,1)=='/'){
+#         contactpage = paste0(website,contactpage)
+#       }
+#       
+#       # Repeat postcode check
+#       x <- get_websitefrontpage(contactpage) %>% 
+#         toupper() %>% 
+#         gsub(' ', '', .)
+#       
+#       postcodepresent = qg(postcode, x)[1]
+#       
+#     }
+#     
+#     return(postcodepresent)
+#     
+#   }
+#   
+# }
+
+
+
+check_for_postcode <- function(website, postcode, ...) {
+  
+  # Helper to check postcode on a given URL
+  check_page <- function(url) {
+    x <- get_websitefrontpage(url) %>% 
+      toupper() %>%
+      gsub(' ', '', .)
+    qg(postcode, x)[1]
+  }
+  
+  # Helper to make URLs absolute
+  make_absolute <- function(path, base) {
+    if (is.na(path)) return(NA)
+    if (grepl("^https?://", path)) return(path)
+    if (grepl("^/", path)) return(paste0("https://", base, path))
+    paste0("https://", base, "/", path)
+  }
+  
+  # Check main page first
+  if (check_page(paste0(website))) {
+    cat('Tick!\n')
+    return(TRUE)
+  }
+  
+  # Get all links from main page
+  doc <- tryCatch(
+    read_html(paste0("https://", website)),
+    error = function(e) NULL
+  )
+  
+  if (is.null(doc)) return(FALSE)
+  
+  all_links <- xml_attr(
+    xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
+    "href"
+  )
+  
+  # Define page patterns to check in order
+  page_patterns <- c("contact","about")
+  
+  for (pattern in page_patterns) {
+    cat(paste0("Trying ", pattern, " page...\n"))
+    
+    matching_link <- all_links[qg(pattern, all_links)][1]
+    
+    if (!is.na(matching_link)) {
+      full_url <- make_absolute(matching_link, website)
+      
+      if (check_page(gsub('https://','',full_url))) {
+        cat('Tick!\n')
+        return(TRUE)
+      }
+    }
+  }
+  
+  FALSE
+}
 

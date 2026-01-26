@@ -950,3 +950,271 @@ Combined with:
 - Postcode S9 (Sheffield) → manufacturing colocation boost
 
 Expected posterior: **advanced_manufacturing ~0.7**, clean_energy ~0.2 (solar mentioned but not core business)
+
+---
+
+## Refining Health Tech Classification with Embeddings
+
+The challenge: "health tech" should capture medical devices, digital health platforms, and biotech - but NOT care homes, dental practices, GP surgeries, or general healthcare providers. Basic embedding similarity often conflates these because they share vocabulary like "health", "patient", "care".
+
+### The Problem Illustrated
+
+```
+Health Tech (WANT):           Non-Tech Health (DON'T WANT):
+- Medical device manufacturer  - Care home
+- Digital health platform      - Dental practice
+- Biotech/pharma R&D          - GP surgery
+- Clinical diagnostics        - Physiotherapy clinic
+- Health AI/ML                - Nursing agency
+```
+
+Both use words like "health", "patient", "care", "clinical" - but the tech firms emphasize innovation, devices, software, research.
+
+### Option 1: Improved Sector Description (Quick Fix)
+
+Make the reference description explicitly contrast with non-tech health:
+
+```python
+SECTOR_DESCRIPTIONS = {
+    "health_tech": """Medical technology and digital health company.
+    Develops diagnostic devices, medical equipment, health software platforms,
+    pharmaceutical products, biotech research, clinical AI, patient monitoring systems,
+    telemedicine platforms, health data analytics.
+    NOT a care provider, nursing home, dental practice, GP surgery, or healthcare staffing agency.
+    Focus on technology, innovation, R&D, devices, software, platforms."""
+}
+```
+
+This helps but doesn't fully solve the problem - embeddings don't handle negation well.
+
+### Option 2: Multiple Reference Embeddings (Better)
+
+Instead of one description, use multiple example texts from known health tech firms:
+
+```python
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+# Known health tech company descriptions (curated examples)
+HEALTH_TECH_EXAMPLES = [
+    "We develop AI-powered diagnostic imaging software for early cancer detection",
+    "Our wearable devices monitor cardiac patients remotely with real-time alerts",
+    "Pharmaceutical research company developing novel antibody therapies",
+    "Digital health platform connecting patients with specialists via telemedicine",
+    "Medical device manufacturer specialising in minimally invasive surgical tools",
+    "Biotech firm using CRISPR gene editing for rare disease treatments",
+    "Health data analytics platform for hospital resource optimisation",
+]
+
+# Known NON-health-tech (care providers) - to contrast against
+NON_HEALTH_TECH_EXAMPLES = [
+    "Residential care home providing 24-hour support for elderly residents",
+    "NHS GP surgery serving the local community with appointments and prescriptions",
+    "Dental practice offering check-ups, fillings, and cosmetic dentistry",
+    "Nursing agency supplying temporary healthcare staff to hospitals",
+    "Physiotherapy clinic helping patients recover from injuries",
+    "Home care service providing daily living support for vulnerable adults",
+]
+
+def create_health_tech_classifier(model):
+    """Create embeddings for health tech vs non-health-tech."""
+    pos_embeddings = model.encode(HEALTH_TECH_EXAMPLES)
+    neg_embeddings = model.encode(NON_HEALTH_TECH_EXAMPLES)
+
+    # Centroid of positive examples
+    pos_centroid = np.mean(pos_embeddings, axis=0)
+    neg_centroid = np.mean(neg_embeddings, axis=0)
+
+    return pos_centroid, neg_centroid
+
+def classify_health_tech(text, model, pos_centroid, neg_centroid):
+    """
+    Score how 'health tech' vs 'non-tech health' a company is.
+    Returns score from -1 (definitely care home) to +1 (definitely health tech).
+    """
+    text_emb = model.encode(text)
+
+    # Cosine similarity to each centroid
+    pos_sim = np.dot(text_emb, pos_centroid) / (np.linalg.norm(text_emb) * np.linalg.norm(pos_centroid))
+    neg_sim = np.dot(text_emb, neg_centroid) / (np.linalg.norm(text_emb) * np.linalg.norm(neg_centroid))
+
+    # Difference: positive = health tech, negative = care provider
+    return pos_sim - neg_sim, pos_sim, neg_sim
+```
+
+### Option 3: SetFit Few-Shot Learning (Recommended for Production)
+
+SetFit is designed for exactly this: training a classifier with very few examples (8-16 per class). It fine-tunes sentence-transformers efficiently.
+
+```python
+# pip install setfit
+
+from setfit import SetFitModel, Trainer, TrainingArguments
+from datasets import Dataset
+
+# Training data: just 10-20 examples per class is enough
+train_data = {
+    "text": [
+        # Health tech examples (label=1)
+        "Medical device company developing cardiac monitoring systems",
+        "AI-powered diagnostic platform for radiology departments",
+        "Biotech firm researching mRNA vaccine technologies",
+        "Digital health app for diabetes management and glucose tracking",
+        "Pharmaceutical company specialising in oncology treatments",
+        "Wearable health technology for remote patient monitoring",
+        "Clinical decision support software using machine learning",
+        "Medical imaging equipment manufacturer",
+
+        # Non-tech health examples (label=0)
+        "Residential care home for elderly with dementia",
+        "NHS dental practice offering family dentistry",
+        "Home care agency providing personal care assistants",
+        "Physiotherapy and rehabilitation clinic",
+        "GP surgery serving 8000 registered patients",
+        "Nursing home with 24-hour nursing care",
+        "Domiciliary care provider for vulnerable adults",
+        "Private hospital offering elective surgery",
+    ],
+    "label": [1, 1, 1, 1, 1, 1, 1, 1,  # health tech
+              0, 0, 0, 0, 0, 0, 0, 0]   # non-tech health
+}
+
+# Create dataset
+dataset = Dataset.from_dict(train_data)
+train_dataset = dataset.shuffle(seed=42)
+
+# Load and train SetFit model
+model = SetFitModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+
+trainer = Trainer(
+    model=model,
+    train_dataset=train_dataset,
+    args=TrainingArguments(
+        batch_size=8,
+        num_epochs=1,  # SetFit needs very few epochs
+    ),
+)
+
+trainer.train()
+
+# Save for later use
+model.save_pretrained("models/health_tech_classifier")
+
+# Classify new companies
+def is_health_tech(text):
+    """Returns probability of being health tech (0-1)."""
+    probs = model.predict_proba([text])[0]
+    return probs[1]  # Probability of class 1 (health tech)
+
+# Test
+print(is_health_tech("AI diagnostic imaging for cancer detection"))  # ~0.9
+print(is_health_tech("Care home providing dementia support"))         # ~0.1
+```
+
+### Option 4: Contrastive Fine-Tuning (Most Powerful)
+
+If you have more labelled data (50+ examples), train the base embedding model to push health tech and care providers apart in embedding space:
+
+```python
+from sentence_transformers import SentenceTransformer, InputExample, losses
+from torch.utils.data import DataLoader
+
+# Pairs: (anchor, positive, negative)
+# Anchor = health tech, Positive = another health tech, Negative = care provider
+train_examples = [
+    InputExample(texts=[
+        "Medical device manufacturer for cardiac monitoring",
+        "Wearable health sensors for hospital patients",  # similar (health tech)
+        "Residential nursing home for elderly care"        # dissimilar (care)
+    ]),
+    InputExample(texts=[
+        "Digital health platform with telemedicine",
+        "Health AI software for clinical decisions",
+        "GP surgery with family doctor services"
+    ]),
+    # ... more triplets
+]
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=8)
+train_loss = losses.TripletLoss(model)
+
+model.fit(
+    train_objectives=[(train_dataloader, train_loss)],
+    epochs=3,
+    warmup_steps=10,
+)
+
+model.save("models/health_tech_embeddings")
+```
+
+### Practical Recommendations
+
+| Approach | Data Needed | Effort | Quality |
+|----------|-------------|--------|---------|
+| Better description | 0 | Low | Fair |
+| Multiple examples + centroid | ~10 per class | Low | Good |
+| SetFit few-shot | 8-20 per class | Medium | Very Good |
+| Contrastive fine-tuning | 50+ triplets | High | Excellent |
+
+**Start with Option 2** (multiple examples) for quick improvement, then move to **SetFit (Option 3)** if you need higher accuracy. SetFit is particularly good because:
+- Works with very few labelled examples
+- Fast to train (minutes, not hours)
+- Produces calibrated probabilities
+- Easy to update with new examples
+
+### Building a Training Set
+
+To create training data, identify known health tech vs care providers:
+
+```r
+# In R: find likely health tech firms by SIC + keywords
+likely_health_tech <- ch |>
+  filter(
+    SIC_2DIGIT_CODE %in% c("21", "26", "32", "72"),  # Pharma, electronics, instruments, R&D
+    str_detect(tolower(CompanyName), "tech|digital|bio|pharma|medical device|diagnostic")
+  ) |>
+  sample_n(50)
+
+# Find likely care providers
+likely_care_providers <- ch |>
+  filter(
+    SIC_2DIGIT_CODE %in% c("86", "87", "88"),  # Health, residential care, social work
+    str_detect(tolower(CompanyName), "care|nursing|home|surgery|dental|physio")
+  ) |>
+  sample_n(50)
+
+# Manually verify a subset, then use website text as training data
+```
+
+### Integration with Existing Pipeline
+
+Once you have a trained health tech classifier, integrate it:
+
+```python
+from setfit import SetFitModel
+
+# Load pre-trained classifier
+health_tech_model = SetFitModel.from_pretrained("models/health_tech_classifier")
+
+def classify_sectors_with_health_tech_filter(text, general_model, sector_embeddings):
+    """
+    Two-stage classification:
+    1. General sector similarity
+    2. If health_tech scores high, verify with specialist classifier
+    """
+    # Stage 1: General classification
+    general_scores = classify_text(text, general_model, sector_embeddings)
+
+    # Stage 2: If health_tech is top candidate, verify
+    if general_scores["health_tech"] > 0.3:
+        health_tech_prob = health_tech_model.predict_proba([text])[0][1]
+
+        # Adjust score based on specialist classifier
+        if health_tech_prob < 0.5:
+            # Likely a care provider, not health tech
+            general_scores["health_tech"] *= 0.3  # Penalise
+
+    return general_scores
+```

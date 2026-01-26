@@ -71,6 +71,7 @@ employees = firmcount %>%
 
 firmtable = bind_cols(firmtable,employees %>% select(-sizecategory))
 
+firmtable
 
 # Testing Companies House / website search----
 
@@ -78,7 +79,7 @@ firmtable = bind_cols(firmtable,employees %>% select(-sizecategory))
 sy100 = sy %>% filter(Employees_thisyear > 100)
 
 
-
+ch %>% filter(qg('agemaspark', CompanyName)) %>% View
 
 
 # TEST DOMAIN GUESS THEN VERIFY APPROACH----
@@ -119,17 +120,17 @@ result <- find_company_website(
 set.seed(67)
 # sy100 %>% sample_n(10)
 
-results <- sy100 %>% sample_n(10) |>
-  mutate(
-    website = pmap(
-      list(CompanyName, postcode, CompanyNumber),
-      ~ find_company_website(..1, ..2, ..3, search_fn = google_search)
-    )
-  ) |>
-  unnest_wider(website)
+# results <- sy100 %>% sample_n(10) |>
+#   mutate(
+#     website = pmap(
+#       list(CompanyName, postcode, CompanyNumber),
+#       ~ find_company_website(..1, ..2, ..3, search_fn = google_search)
+#     )
+#   ) |>
+#   unnest_wider(website)
 
 # Check how many avoided API calls
-table(results$method)
+# table(results$method)
 # domain_guess: 85  <- free!
 # search_api: 12    <- paid
 # not_found: 3
@@ -177,11 +178,16 @@ testfirms$website[5]
 
 # Despite that being quite low down on the candidate list...
 generate_domain_candidates(testfirms$CompanyName[5])
+generate_domain_candidates('TITAN INTERIOR SOLUTIONS LIMITED')
 
 # OK, fixed that by adding more candidates in - slower but more accurate
 
 # Correct site name:
 # https://choiceshomecare.co.uk
+
+
+
+
 
 
 
@@ -203,30 +209,162 @@ x = get_clean_text('gripple.com')
 clipr::write_clip(x)
 
 
-# Test reticulate approach, accessing local LLM
-library(reticulate)
 
-# One-time setup: create a Python environment with sentence-transformers
-# conda_create("r-embeddings", packages = c("sentence-transformers"))
-use_condaenv("r-embeddings")
 
-# Import the library
-st <- import("sentence_transformers")
+# Testing getting all links from a page to search for a contact or about page reference
+# Extract all non-empty hrefs
+doc <- read_html("http://gripple.com")
 
-# Load a model (downloads once, then cached locally)
-# all-MiniLM-L6-v2 is fast and good quality (~80MB)
-model <- st$SentenceTransformer("all-MiniLM-L6-v2")
+all_links <- xml_attr(
+  xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
+  "href"
+)
 
-# Get embeddings - works on single text or vector
-get_local_embedding <- function(text) {
-  model$encode(text, convert_to_numpy = TRUE)
+all_links[qg('contact', all_links)]
+
+
+
+
+
+# Let's see about finding a postcode or other firm feature on a page
+# These all with spaces removed
+testfirms$postcode
+
+x = get_clean_text('gripple.com/about-gripple/contact-us/') %>% toupper() %>% gsub(' ','', .)
+qg('S47UQ', x)
+
+# Or get full non cleaned page? Yeah, on front page if we get it all
+x = get_websitefrontpage('gripple.com') %>% toupper() %>% gsub(' ','', .)
+qg('S47UQ', x)
+
+
+
+# Testing getting all links from a page to search for a contact or about page reference
+# Extract all non-empty hrefs
+doc <- read_html("http://gripple.com")
+
+all_links <- xml_attr(
+  xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
+  "href"
+)
+
+all_links[qg('about', all_links)]
+
+
+
+# Test if postcode present on page or contact page
+# debugonce(check_for_postcode)
+results <- pmap(testfirms, check_for_postcode)
+
+# 23% from just the main page... 
+# Up to 31% from contact and about. Hmm. Not awful, could be better!
+table(sapply(results, "[[", 1))
+
+testfirms = testfirms %>% 
+  mutate(
+    website_validatedbypostcode = sapply(results, "[[", 1)
+  )
+
+# For some firms that didn't get a match
+# Test if any other website candidates were actually the correct ones
+# Using a different function that gets all existing sites
+
+# Testing with these
+# The website column is the original single guess
+testfirms.false = testfirms %>% 
+  filter(!website_validatedbypostcode, !is.na(website))
+
+candidates = return_all_existing_candidate_domains('SOLARFRAME HOLDINGS LIMITED')
+
+# Test each website candidate
+for(candidate in candidates){
+  
+  firmtopassin = testfirms.false %>% 
+    filter(CompanyName == 'SOLARFRAME HOLDINGS LIMITED') %>% 
+    mutate(website = candidate)
+  
+  result = check_for_postcode(candidate, firmtopassin$postcode)
+  
+  if(result){
+    
+    cat('Positive: ', candidate, '\n')
+    break
+    
+  }
+  
 }
 
-# Batch encode is much faster than one-at-a-time
-texts <- c("solar energy renewable power", "medical devices healthcare")
-embeddings <- model$encode(texts)  # Returns matrix: n_texts × 384 dimensions
 
 
+
+
+
+
+
+# Guessing the numbers will drop for smaller firms
+sy10to100 = sy %>% filter(between(Employees_thisyear,10,100))
+
+set.seed(67)
+testfirms10to100 = sample_n(sy10to100,100)
+
+x = Sys.time()
+
+testfirms10to100 = testfirms10to100 %>% 
+  mutate(
+    website = map_chr(CompanyName, guess_domain)
+  )
+
+print(Sys.time() - x)
+
+table(!is.na(testfirms10to100$website))
+
+# Aaand postcode validate...
+x = Sys.time()
+
+results10to100 <- pmap(testfirms10to100, check_for_postcode)
+
+print(Sys.time() - x)
+
+# 22% validation for firms with 10 to 100 employees. Not awful.
+# Nearly six minutes for 100 firms. SY has 3255 of those, so...
+# 3.5 hours (not counting the initial website search)
+# Wonder if it can be parallelised? Probably.
+table(sapply(results10to100, "[[", 1))
+
+
+
+
+
+
+
+
+
+
+
+# Test reticulate approach, accessing local LLM
+# library(reticulate)
+# 
+# # One-time setup: create a Python environment with sentence-transformers
+# # conda_create("r-embeddings", packages = c("sentence-transformers"))
+# use_condaenv("r-embeddings")
+# 
+# # Import the library
+# st <- import("sentence_transformers")
+# 
+# # Load a model (downloads once, then cached locally)
+# # all-MiniLM-L6-v2 is fast and good quality (~80MB)
+# model <- st$SentenceTransformer("all-MiniLM-L6-v2")
+# 
+# # Get embeddings - works on single text or vector
+# get_local_embedding <- function(text) {
+#   model$encode(text, convert_to_numpy = TRUE)
+# }
+# 
+# # Batch encode is much faster than one-at-a-time
+# texts <- c("solar energy renewable power", "medical devices healthcare")
+# embeddings <- model$encode(texts)  # Returns matrix: n_texts × 384 dimensions
+
+ch %>% filter(qg('gripple', CompanyName)) %>% View
 
 
 
