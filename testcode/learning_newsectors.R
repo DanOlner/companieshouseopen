@@ -178,8 +178,62 @@ testfirms$website[5]
 # Despite that being quite low down on the candidate list...
 generate_domain_candidates(testfirms$CompanyName[5])
 
+# OK, fixed that by adding more candidates in - slower but more accurate
+
 # Correct site name:
 # https://choiceshomecare.co.uk
+
+
+
+# ANALYSING WEBSITE TEXT----
+
+# We can do some basic validation checks at this stage too.
+
+x = get_websitefrontpage(testfirms$website[1])
+cat(x)
+x = get_websitefrontpage(testfirms$website[1], 'about')
+
+# Try also
+
+# Not much use, this function!
+# get_page_meta('www.sbd-apparel.com')
+
+x = get_clean_text(testfirms$website[1])
+x = get_clean_text('gripple.com')
+clipr::write_clip(x)
+
+
+# Test reticulate approach, accessing local LLM
+library(reticulate)
+
+# One-time setup: create a Python environment with sentence-transformers
+# conda_create("r-embeddings", packages = c("sentence-transformers"))
+use_condaenv("r-embeddings")
+
+# Import the library
+st <- import("sentence_transformers")
+
+# Load a model (downloads once, then cached locally)
+# all-MiniLM-L6-v2 is fast and good quality (~80MB)
+model <- st$SentenceTransformer("all-MiniLM-L6-v2")
+
+# Get embeddings - works on single text or vector
+get_local_embedding <- function(text) {
+  model$encode(text, convert_to_numpy = TRUE)
+}
+
+# Batch encode is much faster than one-at-a-time
+texts <- c("solar energy renewable power", "medical devices healthcare")
+embeddings <- model$encode(texts)  # Returns matrix: n_texts × 384 dimensions
+
+
+
+
+
+
+
+
+
 
 
 

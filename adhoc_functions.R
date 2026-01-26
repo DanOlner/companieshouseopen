@@ -3,9 +3,16 @@
 
 # CLAUDE CODE MADE FUNCTIONS----
 
+# With some human additions / tweaks
+
 library(httr2)
 library(rvest)
 library(curl)
+
+# Guessing and validating website names from company names----
+
+# Using just normalise, generate and guess_domain
+# We'll do some actual website content checks next
 
 # Step 1: Normalise company name to domain-friendly string
 normalise_for_domain <- function(company_name) {
@@ -102,50 +109,50 @@ domain_responds <- function(domain, timeout = 5) {
 }
 
 # Step 4: Validate domain matches the company
-validate_domain_match <- function(domain, company_name, postcode = NULL,
-                                  company_number = NULL, timeout = 10) {
-  url <- paste0("https://", domain)
-  
-  tryCatch({
-    resp <- request(url) |>
-      req_timeout(timeout) |>
-      req_error(is_error = ~ FALSE) |>
-      req_perform()
-    
-    if (resp_status(resp) >= 400) return(list(valid = FALSE, confidence = 0))
-    
-    # Parse homepage text
-    page_text <- resp |>
-      resp_body_html() |>
-      html_text2() |>
-      tolower()
-    
-    # Check for anchors
-    name_clean <- tolower(str_remove(company_name, "\\s*(LIMITED|LTD|PLC)$"))
-    
-    checks <- c(
-      name_found = grepl(name_clean, page_text, fixed = TRUE),
-      postcode_found = if (!is.null(postcode)) {
-        grepl(tolower(postcode), page_text, fixed = TRUE)
-      } else NA,
-      company_number_found = if (!is.null(company_number)) {
-        grepl(company_number, page_text, fixed = TRUE)
-      } else NA
-    )
-    
-    confidence <- sum(checks, na.rm = TRUE) / sum(!is.na(checks))
-    
-    list(
-      valid = confidence >= 0.5,
-      confidence = confidence,
-      checks = checks,
-      url = url
-    )
-    
-  }, error = function(e) {
-    list(valid = FALSE, confidence = 0, error = as.character(e))
-  })
-}
+# validate_domain_match <- function(domain, company_name, postcode = NULL,
+#                                   company_number = NULL, timeout = 10) {
+#   url <- paste0("https://", domain)
+#   
+#   tryCatch({
+#     resp <- request(url) |>
+#       req_timeout(timeout) |>
+#       req_error(is_error = ~ FALSE) |>
+#       req_perform()
+#     
+#     if (resp_status(resp) >= 400) return(list(valid = FALSE, confidence = 0))
+#     
+#     # Parse homepage text
+#     page_text <- resp |>
+#       resp_body_html() |>
+#       html_text2() |>
+#       tolower()
+#     
+#     # Check for anchors
+#     name_clean <- tolower(str_remove(company_name, "\\s*(LIMITED|LTD|PLC)$"))
+#     
+#     checks <- c(
+#       name_found = grepl(name_clean, page_text, fixed = TRUE),
+#       postcode_found = if (!is.null(postcode)) {
+#         grepl(tolower(postcode), page_text, fixed = TRUE)
+#       } else NA,
+#       company_number_found = if (!is.null(company_number)) {
+#         grepl(company_number, page_text, fixed = TRUE)
+#       } else NA
+#     )
+#     
+#     confidence <- sum(checks, na.rm = TRUE) / sum(!is.na(checks))
+#     
+#     list(
+#       valid = confidence >= 0.5,
+#       confidence = confidence,
+#       checks = checks,
+#       url = url
+#     )
+#     
+#   }, error = function(e) {
+#     list(valid = FALSE, confidence = 0, error = as.character(e))
+#   })
+# }
 
 # Step 5: Full pipeline - guess first, search if needed
 find_company_website <- function(company_name, postcode = NULL,
@@ -202,4 +209,79 @@ guess_domain <- function(company_name) {
 
   return(NA_character_)
 }
+
+
+# Check website contents----
+
+
+# get_page_meta <- function(domain) {
+#   url <- paste0("https://", domain)
+#   
+#   tryCatch({
+#     doc <- request(url) |> req_timeout(10) |> req_perform() |> resp_body_html()
+#     
+#     list(
+#       title = html_element(doc, "title") |> html_text(),
+#       description = html_element(doc, "meta[name='description']") |> html_attr("content"),
+#       og_description = html_element(doc, "meta[property='og:description']") |> html_attr("content"),
+#       h1 = html_elements(doc, "h1") |> html_text() |> paste(collapse = " ")
+#     )
+#   }, error = function(e) list(title = NA, description = NA, og_description = NA, h1 = NA))
+# }
+
+
+
+get_websitefrontpage = function(domain,subdomain = NULL){
+  
+  url <- paste0("https://", domain)
+  
+  if(!is_null(subdomain)) url = paste0(url, "/", subdomain)
+  
+  cat("Trying to get ", url, "\n")
+  
+  tryCatch({
+    resp <- request(url) |>
+      req_timeout(10) |>
+      req_error(is_error = ~ FALSE) |>
+      req_perform()
+    
+    if (resp_status(resp) >= 400) return(list(valid = FALSE, confidence = 0))
+    
+    # Parse homepage text
+    page_text <- resp |>
+      resp_body_html() |>
+      html_text2() |>
+      tolower()
+    
+  }, error = function(e) {
+    list(valid = FALSE, confidence = 0, error = as.character(e))
+  })
+    
+}
+
+
+get_clean_text <- function(domain) {
+  url <- paste0("https://", domain)
+  
+  tryCatch({
+    resp <- request(url) |>
+      req_timeout(10) |>
+      req_error(is_error = ~ FALSE) |>
+      req_perform()
+    
+    if (resp_status(resp) >= 400) return(NA_character_)
+    
+    doc <- resp_body_html(resp)
+    
+    # Remove script, style, noscript, nav, footer, header tags
+    xml_remove(html_elements(doc, "script, style, noscript, nav, footer, header"))
+    
+    # Now extract text
+    doc |> html_text2() |> tolower() |> str_squish()
+    
+  }, error = function(e) NA_character_)
+}
+
+
+
 

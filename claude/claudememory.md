@@ -1,6 +1,6 @@
 # Companies House Open Data Project - Reference
 
-This doc is mainly claude-generated.
+This doc is mainly claude-generated, with a few human additions / edits.
 
 ## Main Dataset: `ch` (3.2 million rows)
 
@@ -571,3 +571,382 @@ For these cases, fall back to search API or flag for manual review.
 - [Company URL matching techniques](https://thedatacity.com/blog/mapping-company-distribution-using-registered-and-operating-addresses-2/) - Data City's approach
 - [DNS lookup in R](https://cran.r-project.org/web/packages/curl/vignettes/intro.html) - `curl::nslookup()`
 - [httr2 for HTTP requests](https://httr2.r-lib.org/) - Modern R HTTP client
+
+---
+
+## Bespoke Sector Classification from Website Text
+
+Approaches for assigning probability scores to custom sector categories using website text, with Bayesian updating from additional signals.
+
+### Target Sectors (Initial Set)
+
+| Sector | Description | Key Signals |
+|--------|-------------|-------------|
+| Clean Energy | Renewables, solar, wind, batteries, grid tech | solar, wind, renewable, battery, grid, carbon, sustainability |
+| Health Tech | Medical devices, digital health, biotech | medical, health, patient, clinical, diagnostic, biotech, pharma |
+| Defence | Military, security, aerospace defence | defence, military, security, aerospace, radar, surveillance |
+| Advanced Manufacturing | High-tech production, automation, precision engineering | manufacturer, precision, automation, robotics, CNC, engineering |
+
+### Option 1: Keyword Dictionary Scoring (Simplest)
+
+Fast and interpretable. Define weighted keyword lists per sector.
+
+```r
+# Define sector keywords with weights
+sector_keywords <- list(
+  clean_energy = c(
+    "solar" = 3, "wind" = 3, "renewable" = 3, "battery" = 2, "grid" = 2,
+    "carbon" = 2, "sustainability" = 2, "green energy" = 3, "photovoltaic" = 3,
+    "turbine" = 2, "hydrogen" = 2, "net zero" = 2
+  ),
+  health_tech = c(
+    "medical" = 3, "health" = 2, "patient" = 3, "clinical" = 3, "diagnostic" = 3,
+    "biotech" = 3, "pharmaceutical" = 2, "healthcare" = 2, "therapy" = 2,
+    "device" = 1, "hospital" = 2, "nhs" = 2
+  ),
+  defence = c(
+    "defence" = 3, "defense" = 3, "military" = 3, "security" = 2, "aerospace" = 2,
+    "radar" = 3, "surveillance" = 2, "ammunition" = 3, "naval" = 3, "mod" = 2
+  ),
+  advanced_manufacturing = c(
+    "manufacturer" = 2, "manufacturing" = 2, "precision" = 2, "automation" = 3,
+    "robotics" = 3, "cnc" = 3, "engineering" = 1, "machining" = 2, "fabrication" = 2,
+    "prototype" = 2, "assembly" = 1
+  )
+)
+
+# Score text against sector keywords
+score_sector_keywords <- function(text, keywords) {
+  text_lower <- tolower(text)
+  score <- 0
+  matches <- c()
+
+  for (kw in names(keywords)) {
+    if (grepl(kw, text_lower, fixed = TRUE)) {
+      score <- score + keywords[kw]
+      matches <- c(matches, kw)
+    }
+  }
+
+  list(score = score, matches = matches)
+}
+
+# Apply to all sectors
+classify_text_keywords <- function(text) {
+  results <- lapply(names(sector_keywords), function(sector) {
+    res <- score_sector_keywords(text, sector_keywords[[sector]])
+    data.frame(
+      sector = sector,
+      score = res$score,
+      matches = paste(res$matches, collapse = ", ")
+    )
+  })
+  bind_rows(results) |> arrange(desc(score))
+}
+
+# Example with Gripple text
+# classify_text_keywords(gripple_text)
+# Returns: advanced_manufacturing (score ~6), clean_energy (score ~3)
+```
+
+**Pros**: Fast, explainable, no dependencies
+**Cons**: Misses synonyms, requires manual keyword curation
+
+### Option 2: TF-IDF + Cosine Similarity (Lightweight ML)
+
+Compare text to sector "seed documents" using term frequency.
+
+```r
+library(tidytext)
+library(widyr)
+
+# Create seed descriptions for each sector
+seed_texts <- tibble(
+  sector = c("clean_energy", "health_tech", "defence", "advanced_manufacturing"),
+  text = c(
+    "solar panels wind turbines renewable energy battery storage grid infrastructure sustainability carbon reduction green technology photovoltaic cells hydrogen fuel cells net zero emissions",
+    "medical devices healthcare technology patient monitoring clinical diagnostics biotech pharmaceutical digital health telemedicine hospital equipment therapeutic devices NHS healthcare",
+    "defence military aerospace security systems radar surveillance ammunition naval systems MOD contracts military equipment combat systems tactical communications",
+    "precision manufacturing automation robotics CNC machining engineering fabrication assembly line industrial production prototyping quality control lean manufacturing"
+  )
+)
+
+# Calculate TF-IDF for seeds (do once, cache)
+seed_tfidf <- seed_texts |>
+  unnest_tokens(word, text) |>
+  count(sector, word) |>
+  bind_tf_idf(word, sector, n)
+
+# Score new text against seeds
+score_text_tfidf <- function(new_text, seed_tfidf) {
+  new_words <- tibble(text = new_text) |>
+    unnest_tokens(word, text) |>
+    count(word)
+
+  # Join with seed vocabulary and sum TF-IDF weights
+  new_words |>
+    inner_join(seed_tfidf, by = "word", relationship = "many-to-many") |>
+    group_by(sector) |>
+    summarise(score = sum(tf_idf * n), .groups = "drop") |>
+    arrange(desc(score))
+}
+```
+
+**Pros**: Handles vocabulary variation better, weights rare terms higher
+**Cons**: Still bag-of-words, misses context
+
+### Option 3: Embeddings + Similarity (Most Powerful)
+
+Use pre-trained embeddings for semantic matching. Requires Python bridge or API.
+
+```r
+# Option A: Use OpenAI embeddings via API
+library(httr2)
+
+get_embedding <- function(text, api_key) {
+  resp <- request("https://api.openai.com/v1/embeddings") |>
+    req_auth_bearer_token(api_key) |>
+    req_body_json(list(
+      input = text,
+      model = "text-embedding-3-small"
+    )) |>
+    req_perform() |>
+    resp_body_json()
+
+  unlist(resp$data[[1]]$embedding)
+}
+
+# Pre-compute sector embeddings (cache these!)
+sector_descriptions <- c(
+  clean_energy = "Renewable energy company specialising in solar, wind, batteries and grid technology for sustainable power generation",
+  health_tech = "Medical technology company developing diagnostic devices, digital health platforms and pharmaceutical solutions",
+  defence = "Defence and aerospace company providing military equipment, security systems and surveillance technology",
+  advanced_manufacturing = "Precision engineering and manufacturing company using automation, robotics and CNC machining"
+)
+
+# Cosine similarity
+cosine_sim <- function(a, b) sum(a * b) / (sqrt(sum(a^2)) * sqrt(sum(b^2)))
+
+# Classify new company
+classify_with_embeddings <- function(company_text, sector_embeddings, api_key) {
+  company_emb <- get_embedding(company_text, api_key)
+
+  similarities <- sapply(sector_embeddings, function(s) cosine_sim(company_emb, s))
+
+  tibble(
+    sector = names(similarities),
+    similarity = similarities
+  ) |> arrange(desc(similarity))
+}
+```
+
+**Pros**: Captures semantic meaning, handles synonyms, generalises well
+**Cons**: API costs, latency, requires embedding cache management
+
+---
+
+## Bayesian Multi-Signal Classification
+
+Combine website text with SIC codes and colocation for robust probability estimates.
+
+### The Framework
+
+For each firm, estimate P(sector | evidence) where evidence includes:
+- **T**: Website text
+- **S**: Assigned SIC code
+- **L**: Location (colocation with known sector firms)
+
+Using Bayes' theorem with conditional independence assumption:
+
+```
+P(sector | T, S, L) ∝ P(T | sector) × P(S | sector) × P(L | sector) × P(sector)
+```
+
+### Step 1: SIC Code Priors
+
+Map SIC codes to sector probabilities. Some codes strongly indicate a sector; others are ambiguous.
+
+```r
+# Define P(sector | SIC) mappings
+# Values are rough priors - refine with domain knowledge
+sic_sector_priors <- tribble(
+  ~SIC_2DIGIT_CODE, ~clean_energy, ~health_tech, ~defence, ~advanced_manufacturing,
+  "35",             0.4,           0.0,          0.0,      0.1,    # Electricity/gas
+  "26",             0.1,           0.2,          0.2,      0.3,    # Electronics
+  "27",             0.2,           0.0,          0.0,      0.3,    # Electrical equipment
+  "28",             0.05,          0.1,          0.1,      0.4,    # Machinery
+  "29",             0.05,          0.0,          0.1,      0.3,    # Motor vehicles
+  "30",             0.0,           0.0,          0.3,      0.2,    # Other transport (aerospace)
+  "21",             0.0,           0.5,          0.0,      0.1,    # Pharmaceuticals
+  "32",             0.0,           0.3,          0.1,      0.2,    # Medical instruments
+  "62",             0.05,          0.1,          0.1,      0.0,    # Software
+  "72",             0.05,          0.15,         0.1,      0.05    # R&D
+)
+
+get_sic_prior <- function(sic_code, sector) {
+  prior_row <- sic_sector_priors |> filter(SIC_2DIGIT_CODE == sic_code)
+  if (nrow(prior_row) == 0) return(0.01)  # Default low prior for unmapped SICs
+  prior_row[[sector]]
+}
+```
+
+### Step 2: Text Likelihood
+
+Convert keyword/embedding scores to probabilities.
+
+```r
+# Normalise keyword scores to pseudo-probabilities
+# Using softmax-style transformation
+text_score_to_likelihood <- function(scores) {
+  # scores is a named vector: c(clean_energy = 5, health_tech = 2, ...)
+  exp_scores <- exp(scores / 3)  # Temperature parameter controls sharpness
+  exp_scores / sum(exp_scores)
+}
+
+# Example: if keyword scores are c(4, 1, 0, 6)
+# Likelihoods become roughly c(0.18, 0.05, 0.03, 0.74)
+```
+
+### Step 3: Colocation Signal
+
+Firms near known sector clusters get a boost.
+
+```r
+# Pre-compute: % of firms in each postcode district that are in each sector
+# (requires a labelled training set)
+
+# Simplified: manual lookup for key clusters
+colocation_boosts <- tribble(
+  ~postcode_prefix, ~clean_energy, ~health_tech, ~defence, ~advanced_manufacturing,
+  "CB",             0.0,           0.2,          0.0,      0.1,    # Cambridge - biotech
+  "OX",             0.0,           0.15,         0.05,     0.1,    # Oxford
+  "BS",             0.0,           0.0,          0.15,     0.1,    # Bristol - aerospace
+  "S9",             0.0,           0.0,          0.0,      0.2,    # Sheffield - manufacturing
+  "CV",             0.0,           0.0,          0.0,      0.15,   # Coventry - automotive/mfg
+  "AB",             0.15,          0.0,          0.0,      0.1     # Aberdeen - energy
+)
+
+get_colocation_factor <- function(postcode, sector) {
+  prefix <- str_extract(postcode, "^[A-Z]{1,2}")
+  boost_row <- colocation_boosts |> filter(postcode_prefix == prefix)
+  if (nrow(boost_row) == 0) return(1.0)  # No boost/penalty
+  1 + boost_row[[sector]]  # Multiplicative factor
+}
+```
+
+### Step 4: Combine with Bayes
+
+```r
+classify_firm_bayesian <- function(
+  company_text,
+  sic_2digit,
+  postcode,
+  sectors = c("clean_energy", "health_tech", "defence", "advanced_manufacturing")
+) {
+
+  # 1. Get text scores and convert to likelihoods
+  text_results <- classify_text_keywords(company_text)
+  text_scores <- setNames(text_results$score, text_results$sector)
+  text_likelihoods <- text_score_to_likelihood(text_scores[sectors])
+
+  # 2. Get SIC priors
+  sic_priors <- sapply(sectors, function(s) get_sic_prior(sic_2digit, s))
+
+  # 3. Get colocation factors
+  coloc_factors <- sapply(sectors, function(s) get_colocation_factor(postcode, s))
+
+  # 4. Combine: posterior ∝ likelihood × prior × colocation
+  raw_posteriors <- text_likelihoods * sic_priors * coloc_factors
+
+  # 5. Normalise to probabilities
+  posteriors <- raw_posteriors / sum(raw_posteriors)
+
+  tibble(
+    sector = sectors,
+    text_likelihood = text_likelihoods,
+    sic_prior = sic_priors,
+    colocation_factor = coloc_factors,
+    posterior = posteriors
+  ) |> arrange(desc(posterior))
+}
+
+# Example: Gripple Limited
+# SIC 25990 (Other fabricated metal products) → 2-digit = 25 → manufacturing prior
+# Postcode S9 → Sheffield manufacturing cluster
+# Text: "manufacturer", "solar solutions", "wire joining"
+#
+# Result: advanced_manufacturing ~0.75, clean_energy ~0.15, others low
+```
+
+### Practical Workflow
+
+```r
+# 1. Start with firms that have matched websites
+firms_with_sites <- ch |>
+  filter(!is.na(matched_url), Employees_thisyear >= 10)
+
+# 2. Batch fetch website text (with caching!)
+firms_with_sites <- firms_with_sites |>
+  mutate(
+    site_text = map_chr(matched_url, possibly(get_clean_text, NA_character_))
+  )
+
+# 3. Apply Bayesian classification
+firms_classified <- firms_with_sites |>
+  filter(!is.na(site_text)) |>
+  mutate(
+    classification = pmap(
+      list(site_text, SIC_2DIGIT_CODE, postcode),
+      classify_firm_bayesian
+    )
+  ) |>
+  unnest(classification)
+
+# 4. Filter to high-confidence assignments
+high_confidence <- firms_classified |>
+  filter(posterior >= 0.6) |>
+  select(CompanyName, CompanyNumber, sector, posterior, text_likelihood, sic_prior)
+```
+
+### Advantages of Bayesian Approach
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Handles missing data** | No website? Use SIC + colocation only |
+| **Interpretable** | Can see contribution of each signal |
+| **Updateable** | Add new signals (e.g., employee count, company age) easily |
+| **Calibrated uncertainty** | Low posterior = genuinely uncertain, not forced classification |
+| **Prior knowledge** | Domain expertise encoded in SIC mappings |
+
+### Calibration and Validation
+
+```r
+# 1. Create small labelled test set (50-100 firms, manually verified)
+# 2. Compare predicted probabilities to actual labels
+# 3. Plot calibration curve: P(correct | predicted_prob in bin)
+# 4. Adjust temperature parameter and priors if needed
+
+# Simple calibration check
+validation_set |>
+  mutate(prob_bin = cut(posterior, breaks = seq(0, 1, 0.1))) |>
+  group_by(prob_bin) |>
+  summarise(
+    n = n(),
+    accuracy = mean(predicted_sector == true_sector)
+  )
+# Ideally: 0.8-0.9 bin has ~85% accuracy, 0.5-0.6 bin has ~55% accuracy
+```
+
+### Example: Gripple Analysis
+
+Website text signals:
+- "manufacturer" → advanced_manufacturing (+2)
+- "solar solutions" → clean_energy (+3)
+- "wire joining", "tensioning", "suspension systems" → advanced_manufacturing context
+- "employee-owned", "sheffield" → no direct sector signal
+
+Combined with:
+- SIC 25990 (fabricated metal products) → manufacturing prior ~0.3
+- Postcode S9 (Sheffield) → manufacturing colocation boost
+
+Expected posterior: **advanced_manufacturing ~0.7**, clean_energy ~0.2 (solar mentioned but not core business)
