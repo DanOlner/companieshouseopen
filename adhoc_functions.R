@@ -271,7 +271,7 @@ get_websitefrontpage = function(domain,subdomain = NULL){
     # Parse homepage text
     page_text <- resp |>
       resp_body_html() |>
-      html_text2() |>
+      html_text() |>
       tolower()
     
   }, error = function(e) {
@@ -406,7 +406,59 @@ check_for_postcode <- function(website, postcode, ...) {
       }
     }
   }
-  
+
   FALSE
+}
+
+
+#' Find a validated website for a company by checking postcode
+#'
+#' Gets all candidate domains for a company name, then checks each one
+#' to see if the company's postcode appears on the site. Returns the first
+#' website that contains the postcode.
+#'
+#' @param company_name Company name to generate domain candidates from
+#' @param postcode Postcode to look for on the website (spaces removed)
+#' @param max_candidates Maximum number of candidate websites to check (default NULL = no limit)
+#' @param verbose Print progress messages (default TRUE)
+#' @return The first validated website URL, or NA_character_ if none found
+find_validated_website <- function(company_name, postcode, max_candidates = 5, verbose = TRUE) {
+
+  # Get all existing domain candidates
+  candidates <- return_all_existing_candidate_domains(company_name)
+
+  # If no candidates exist, return NA
+  if (length(candidates) == 1 && is.na(candidates)) {
+    if (verbose) cat("No domain candidates found for:", company_name, "\n")
+    return(NA_character_)
+  }
+
+  # Limit candidates if max_candidates is set
+  if (!is.null(max_candidates) && length(candidates) > max_candidates) {
+    if (verbose) cat("Limiting to first", max_candidates, "of", length(candidates), "candidates\n")
+    candidates <- candidates[1:max_candidates]
+  }
+
+  if (verbose) cat("Checking", length(candidates), "candidate domains for postcode", postcode, "\n")
+
+  # Check each candidate in turn
+  for (candidate in candidates) {
+    if (verbose) cat("  Testing:", candidate, "... ")
+
+    result <- tryCatch(
+      check_for_postcode(candidate, postcode),
+      error = function(e) FALSE
+    )
+
+    if (result) {
+      if (verbose) cat("VALIDATED\n")
+      return(candidate)
+    } else {
+      if (verbose) cat("no match\n")
+    }
+  }
+
+  if (verbose) cat("No validated website found for:", company_name, "\n")
+  return(NA_character_)
 }
 

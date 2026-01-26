@@ -294,6 +294,17 @@ for(candidate in candidates){
   
 }
 
+# Test Claude's batch version of the above...
+testfirms.false <- testfirms.false %>%
+  mutate(
+    validated_website = map2_chr(
+      CompanyName, 
+      postcode,
+      find_validated_website,
+      max_candidates = 5
+    )
+  )
+
 
 
 
