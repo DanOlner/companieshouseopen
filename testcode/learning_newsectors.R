@@ -2,8 +2,12 @@
 library(tidyverse)
 library(clipr)
 library(sf)
+library(furrr)
 source('functions.R')
 source('adhoc_functions.R')
+
+# Set up parallel processing (uses all available cores minus one)
+plan(multisession, workers = availableCores() - 1)
 
 ch = readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
 
@@ -78,8 +82,8 @@ firmtable
 # Let's use a subsample. Having done the table above, what do the largest firms look like?
 sy100 = sy %>% filter(Employees_thisyear > 100)
 
-
-ch %>% filter(qg('agemaspark', CompanyName)) %>% View
+# Person on innovation board
+# ch %>% filter(qg('agemaspark', CompanyName)) %>% View
 
 
 # TEST DOMAIN GUESS THEN VERIFY APPROACH----
@@ -295,19 +299,54 @@ for(candidate in candidates){
 }
 
 # Test Claude's batch version of the above...
+# Using furrr::future_map2_chr for parallel processing
+x = Sys.time()
+
+# 1.6 mins for 20 firms...
+# 3 mins for 60 firms
+
+# Say we searched just firms 10+employees in latest year
+# That's 1868 + 1057 + 330 + 195 = 3450
+# 1868 + 1057 + 330 + 195 
+# Only 3 hours? Not disastrous
+((3450/60) * 3) /60
+
+# chk <- testfirms.false %>% slice(1:20) %>% 
 testfirms.false <- testfirms.false %>%
   mutate(
-    validated_website = map2_chr(
-      CompanyName, 
+    validated_website = future_map2_chr(
+      CompanyName,
       postcode,
       find_validated_website,
-      max_candidates = 5
+      max_candidates = 10,
+      .progress = TRUE
     )
   )
 
+print(Sys.time() - x)
 
+#Stick em together to check both
+combo = testfirms %>% 
+  st_set_geometry(NULL) %>% 
+  left_join(
+    testfirms.false %>% st_set_geometry(NULL) %>% select(CompanyName,accountcode,validated_website),
+    by = c('CompanyName','accountcode')
+  )
 
+# This is a bit of mess, but...
+combo = combo %>% 
+  mutate(
+    validated_website_final = case_when(
+      website_validatedbypostcode ~ website,
+      !is.na(validated_website) ~ validated_website,
+      .default = NA
+    )
+  )
 
+# So difference from guessing 1st website to trying 10 is...
+# 31% to 41%. Woop!
+table(combo$website_validatedbypostcode)
+table(!is.na(combo$validated_website_final))
 
 
 
@@ -346,9 +385,11 @@ table(sapply(results10to100, "[[", 1))
 
 
 
+# Testing storing the website text so we don't have to get it twice 
+# To do the ML similarity
+x = get_page_content('gripple.com')
 
-
-
+# Get a sample of various
 
 
 

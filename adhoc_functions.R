@@ -252,32 +252,43 @@ return_all_existing_candidate_domains <- function(company_name) {
 
 
 
-get_websitefrontpage = function(domain,subdomain = NULL){
-  
+#' Fetch page and return both text and parsed HTML document
+#'
+#' Single HTTP request that returns everything needed for postcode checking
+#' and link extraction, avoiding duplicate fetches.
+get_page_content <- function(domain, subdomain = NULL, timeout = 10) {
   url <- paste0("https://", domain)
-  
-  if(!is_null(subdomain)) url = paste0(url, "/", subdomain)
-  
-  cat("Trying to get ", url, "\n")
-  
+  if (!is.null(subdomain)) url <- paste0(url, "/", subdomain)
+
+  cat("Trying to get", url, "\n")
+
   tryCatch({
     resp <- request(url) |>
-      req_timeout(10) |>
+      req_timeout(timeout) |>
       req_error(is_error = ~ FALSE) |>
       req_perform()
-    
-    if (resp_status(resp) >= 400) return(list(valid = FALSE, confidence = 0))
-    
-    # Parse homepage text
-    page_text <- resp |>
-      resp_body_html() |>
-      html_text() |>
-      tolower()
-    
+
+    if (resp_status(resp) >= 400) {
+      return(list(text = NULL, doc = NULL, success = FALSE))
+    }
+
+    doc <- resp_body_html(resp)
+    page_text <- doc |> html_text() |> tolower()
+
+    list(text = page_text, doc = doc, success = TRUE)
+
   }, error = function(e) {
-    list(valid = FALSE, confidence = 0, error = as.character(e))
+    list(text = NULL, doc = NULL, success = FALSE)
   })
-    
+}
+
+#' Extract all links from parsed HTML document
+get_links_from_doc <- function(doc) {
+  if (is.null(doc)) return(character(0))
+  xml_attr(
+    xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
+    "href"
+  )
 }
 
 
@@ -353,15 +364,14 @@ get_clean_text <- function(domain) {
 
 
 check_for_postcode <- function(website, postcode, ...) {
-  
-  # Helper to check postcode on a given URL
-  check_page <- function(url) {
-    x <- get_websitefrontpage(url) %>% 
-      toupper() %>%
-      gsub(' ', '', .)
-    qg(postcode, x)[1]
+
+  # Helper to check postcode in text
+  postcode_in_text <- function(text) {
+    if (is.null(text)) return(FALSE)
+    text_clean <- text |> toupper() |> gsub(' ', '', x = _)
+    qg(postcode, text_clean)[1]
   }
-  
+
   # Helper to make URLs absolute
   make_absolute <- function(path, base) {
     if (is.na(path)) return(NA)
@@ -369,38 +379,39 @@ check_for_postcode <- function(website, postcode, ...) {
     if (grepl("^/", path)) return(paste0("https://", base, path))
     paste0("https://", base, "/", path)
   }
-  
-  # Check main page first
-  if (check_page(paste0(website))) {
+
+  # Fetch main page ONCE - get both text and parsed doc
+
+  content <- get_page_content(website)
+
+  if (!content$success) return(FALSE)
+
+  # Check main page text
+  if (postcode_in_text(content$text)) {
     cat('Tick!\n')
     return(TRUE)
   }
-  
-  # Get all links from main page
-  doc <- tryCatch(
-    read_html(paste0("https://", website)),
-    error = function(e) NULL
-  )
-  
-  if (is.null(doc)) return(FALSE)
-  
-  all_links <- xml_attr(
-    xml_find_all(doc, "//a[@href and string-length(@href) > 0]"),
-    "href"
-  )
-  
-  # Define page patterns to check in order
-  page_patterns <- c("contact","about")
-  
+
+  # Get links from the ALREADY FETCHED document (no second request!)
+  all_links <- get_links_from_doc(content$doc)
+
+  if (length(all_links) == 0) return(FALSE)
+
+  # Check contact/about pages
+  page_patterns <- c("contact", "about")
+
   for (pattern in page_patterns) {
     cat(paste0("Trying ", pattern, " page...\n"))
-    
+
     matching_link <- all_links[qg(pattern, all_links)][1]
-    
+
     if (!is.na(matching_link)) {
       full_url <- make_absolute(matching_link, website)
-      
-      if (check_page(gsub('https://','',full_url))) {
+      subpage_domain <- gsub("^https?://", "", full_url)
+
+      subpage_content <- get_page_content(subpage_domain)
+
+      if (postcode_in_text(subpage_content$text)) {
         cat('Tick!\n')
         return(TRUE)
       }
