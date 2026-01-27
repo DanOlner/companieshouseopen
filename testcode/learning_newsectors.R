@@ -343,6 +343,8 @@ combo = combo %>%
     )
   )
 
+saveRDS(combo,'local/testing_firmwebsites.rds')
+
 # So difference from guessing 1st website to trying 10 is...
 # 31% to 41%. Woop!
 table(combo$website_validatedbypostcode)

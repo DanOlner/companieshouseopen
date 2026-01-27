@@ -130,6 +130,7 @@ def batch_get_clean_text(domains, timeout=10):
 # Test
 # ============================================================================
 
+# Only run if script executed directly, not when imported
 if __name__ == "__main__":
     # Test with Gripple
     test_domain = "gripple.com"

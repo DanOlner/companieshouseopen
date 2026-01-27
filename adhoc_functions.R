@@ -487,13 +487,14 @@ check_for_postcode <- function(website, postcode, ...) {
 #'
 #' @param company_name Company name to generate domain candidates from
 #' @param postcode Postcode to look for on the website (spaces removed)
+#' @param candidates if NULL, guess website names from company name. If a vector supplied, use those domains to search.
 #' @param max_candidates Maximum number of candidate websites to check (default 5)
 #' @param verbose Print progress messages (default TRUE)
 #' @return A list with:
 #'   - website: The validated website URL, or NA_character_ if none found
 #'   - main_text: Cleaned text from main page
 #'   - about_text: Cleaned text from about page
-find_validated_website <- function(company_name, postcode, max_candidates = 5, verbose = TRUE) {
+find_validated_website <- function(company_name, postcode, candidates = NULL, max_candidates = 5, verbose = TRUE) {
 
   # Initialize empty result
 
@@ -503,8 +504,10 @@ find_validated_website <- function(company_name, postcode, max_candidates = 5, v
     about_text = NA_character_
   )
 
-  # Get all existing domain candidates
-  candidates <- return_all_existing_candidate_domains(company_name)
+  # Get all existing domain candidates, if no domain candidates via mojeek or elsewhere not passed in
+  if(is.null(candidates)){
+    candidates <- return_all_existing_candidate_domains(company_name)
+  } 
 
   # If no candidates exist, return empty
   if (length(candidates) == 1 && is.na(candidates)) {
