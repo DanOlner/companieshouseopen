@@ -8,6 +8,7 @@
 library(httr2)
 library(rvest)
 library(curl)
+library(xml2)
 
 # Guessing and validating website names from company names----
 
@@ -276,29 +277,72 @@ clean_doc_text <- function(doc) {
 #' Single HTTP request that returns everything needed for postcode checking
 #' and link extraction, avoiding duplicate fetches.
 #' Returns raw text (for postcode matching) and cleaned text (for analysis).
-get_page_content <- function(domain, subdomain = NULL, timeout = 10) {
-  url <- paste0("https://", domain)
-  if (!is.null(subdomain)) url <- paste0(url, "/", subdomain)
+#' Tries HTTPS first, falls back to HTTP if HTTPS fails.
+get_page_content <- function(domain, subdomain = NULL, timeout = 10, try_http_fallback = TRUE) {
 
-  cat("Trying to get", url, "\n")
+  # Helper to perform the actual fetch
 
-  tryCatch({
+  fetch_url <- function(url) {
     resp <- request(url) |>
       req_timeout(timeout) |>
       req_error(is_error = ~ FALSE) |>
       req_perform()
 
     if (resp_status(resp) >= 400) {
-      return(list(text = NULL, doc = NULL, clean_text = NA_character_, success = FALSE))
+      return(NULL)
     }
 
-    doc <- resp_body_html(resp)
+    resp_body_string(resp)
+  }
+
+  # Build URL
+  base_path <- if (!is.null(subdomain)) paste0(domain, "/", subdomain) else domain
+  https_url <- paste0("https://", base_path)
+  http_url <- paste0("http://", base_path)
+
+  cat("Trying to get", https_url, "\n")
+
+  raw_html <- tryCatch(
+    fetch_url(https_url),
+    error = function(e) {
+      if (try_http_fallback) {
+        cat("HTTPS failed, trying HTTP fallback...\n")
+        tryCatch(
+          fetch_url(http_url),
+          error = function(e2) {
+            cat("HTTP also failed:", conditionMessage(e2), "\n")
+            NULL
+          }
+        )
+      } else {
+        cat("Error fetching page:", conditionMessage(e), "\n")
+        NULL
+      }
+    }
+  )
+
+  if (is.null(raw_html)) {
+    return(list(text = NULL, doc = NULL, clean_text = NA_character_, success = FALSE))
+  }
+
+  tryCatch({
+    doc <- read_html(raw_html)
     page_text <- doc |> html_text() |> tolower()
-    clean_text <- clean_doc_text(doc)
+
+    # Parse again for cleaning (so we can modify without affecting doc)
+    clean_text <- tryCatch({
+      doc_for_clean <- read_html(raw_html)
+      xml_remove(html_elements(doc_for_clean, "script, style, noscript, nav, footer, header"))
+      doc_for_clean |> html_text2() |> tolower() |> str_squish()
+    }, error = function(e) {
+      cat("Error cleaning text:", conditionMessage(e), "\n")
+      NA_character_
+    })
 
     list(text = page_text, doc = doc, clean_text = clean_text, success = TRUE)
 
   }, error = function(e) {
+    cat("Error parsing HTML:", conditionMessage(e), "\n")
     list(text = NULL, doc = NULL, clean_text = NA_character_, success = FALSE)
   })
 }
@@ -432,48 +476,57 @@ check_for_postcode <- function(website, postcode, ...) {
   }
 
   # Get links from the ALREADY FETCHED document
-  all_links <- get_links_from_doc(content$doc)
+  # Wrap in tryCatch so errors here don't lose our validated status
+  all_links <- tryCatch(
+    get_links_from_doc(content$doc),
+    error = function(e) character(0)
+  )
 
   if (length(all_links) == 0) return(result)
 
   # ALWAYS fetch about page for its content
-  about_link <- all_links[qg("about", all_links)][1]
-  cat("Trying about page: \n", about_link,"\n")
+  # Wrap subpage fetching in tryCatch to preserve result if errors occur
+  tryCatch({
+    about_link <- all_links[qg("about", all_links)][1]
+    cat("Trying about page:", about_link, "\n")
 
-  if (!is.na(about_link)) {
-    full_url <- make_absolute(about_link, website)
-    subpage_domain <- gsub("^https?://", "", full_url)
-
-    about_content <- get_page_content(subpage_domain)
-
-    if (about_content$success) {
-      result$about_text <- about_content$clean_text
-
-      # Check about page for postcode if not yet found
-      if (!result$validated && postcode_in_text(about_content$text)) {
-        cat('Tick! (about page)\n')
-        result$validated <- TRUE
-      }
-    }
-  }
-
-  # Only check contact page if postcode still not found
-  if (!result$validated) {
-    cat("Trying contact page...\n")
-    contact_link <- all_links[qg("contact", all_links)][1]
-
-    if (!is.na(contact_link)) {
-      full_url <- make_absolute(contact_link, website)
+    if (!is.na(about_link)) {
+      full_url <- make_absolute(about_link, website)
       subpage_domain <- gsub("^https?://", "", full_url)
 
-      contact_content <- get_page_content(subpage_domain)
+      about_content <- get_page_content(subpage_domain)
 
-      if (contact_content$success && postcode_in_text(contact_content$text)) {
-        cat('Tick! (contact page)\n')
-        result$validated <- TRUE
+      if (about_content$success) {
+        result$about_text <- about_content$clean_text
+
+        # Check about page for postcode if not yet found
+        if (!result$validated && postcode_in_text(about_content$text)) {
+          cat('Tick! (about page)\n')
+          result$validated <- TRUE
+        }
       }
     }
-  }
+
+    # Only check contact page if postcode still not found
+    if (!result$validated) {
+      cat("Trying contact page...\n")
+      contact_link <- all_links[qg("contact", all_links)][1]
+
+      if (!is.na(contact_link)) {
+        full_url <- make_absolute(contact_link, website)
+        subpage_domain <- gsub("^https?://", "", full_url)
+
+        contact_content <- get_page_content(subpage_domain)
+
+        if (contact_content$success && postcode_in_text(contact_content$text)) {
+          cat('Tick! (contact page)\n')
+          result$validated <- TRUE
+        }
+      }
+    }
+  }, error = function(e) {
+    cat("Error fetching subpages:", conditionMessage(e), "\n")
+  })
 
   result
 }
@@ -547,4 +600,95 @@ find_validated_website <- function(company_name, postcode, candidates = NULL, ma
   if (verbose) cat("No validated website found for:", company_name, "\n")
   return(empty_result)
 }
+
+
+
+
+
+# Query creator for getting candidate websites from mojeek
+# API key set via keyring - no plain text anywhere
+# keyring::key_set("MOJEEK_KEY")
+mojeek_search_urls <- function(q, api_key, n = 10) {
+  req <- request("https://www.mojeek.com/search") |>
+    req_url_query(
+      api_key = api_key,
+      q = q,
+      t = n,            # top N
+      fmt = "json",
+      rb = "GB", rbb = 10,
+      lb = "EN", lbb = 100,
+      clufmt = 1,       # 1 result per hostname (per 10 results)
+      fe = ".companieshouse.gov.uk,.linkedin.com,.facebook.com,.1stdirectory.co.uk,.yell.com,.ukbizdb.co.uk,.companydirectorcheck.com,.companydirectorcheck.com,.bigreddirectory.com,.uksmallbusinessdirectory.co.uk,.locallinkup.com,.jobsxl.co.uk,.essentialrecruitment.co.uk,.opencorporates.com,.mirror.co.uk,.thesun.co.uk,.wikipedia.org"
+    )
+
+  resp <- req |> req_perform() |> resp_body_string()
+  js <- fromJSON(resp)
+
+  # Extract URL candidates
+  urls <- js$response$results$url
+  unique(urls)
+}
+
+
+#' Get Mojeek website candidates for a single company
+#'
+#' Searches Mojeek for a company name + local authority and returns base domains.
+#'
+#' @param company_name Company name
+#' @param local_authority Local authority name to add geographic context
+#' @param n Number of results to request (default 10)
+#' @return Character vector of base domain hosts
+get_mojeek_candidates <- function(company_name, local_authority, n = 10) {
+  searchstring <- paste0(company_name, " ", local_authority)
+
+  cat("Searching Mojeek for:", searchstring, "\n")
+
+  tryCatch({
+    mojeek_result <- mojeek_search_urls(searchstring, keyring::key_get("MOJEEK_KEY"), n)
+
+    if (is.null(mojeek_result) || length(mojeek_result) == 0) {
+      return(character(0))
+    }
+
+    # Keep only base URLs
+    base_results <- urltools::suffix_extract(urltools::domain(mojeek_result)) %>%
+      pull(host) %>%
+      unique()
+
+    base_results
+
+  }, error = function(e) {
+    cat("Error searching Mojeek:", conditionMessage(e), "\n")
+    character(0)
+  })
+}
+
+
+#' Get Mojeek candidates for a tibble of companies (rate-limited)
+#'
+#' Iterates over a tibble with CompanyName and localauthority_name columns,
+#' querying Mojeek for each and returning results as a list column.
+#' Rate limited to ~8 queries per second (under Mojeek's 10/sec limit).
+#'
+#' @param df Tibble with CompanyName and localauthority_name columns
+#' @param delay_seconds Delay between queries (default 0.12 = ~8 per second)
+#' @return The input tibble with an added mojeek_candidates list column
+get_mojeek_candidates_batch <- function(df, delay_seconds = 0.12, ...) {
+
+  df %>%
+    mutate(
+      mojeek_candidates = map2(
+        CompanyName,
+        localauthority_name,
+        function(name, la) {
+          result <- get_mojeek_candidates(name, la, ...)
+          Sys.sleep(delay_seconds)  # Rate limit
+          result
+        }
+      )
+    )
+}
+
+
+
 

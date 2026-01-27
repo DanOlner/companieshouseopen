@@ -14,7 +14,8 @@ source('functions.R')
 
 #The joined CH live list, geocoded with LA and ITL2 lookup, and account extracts added
 # ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_July2025.rds')
-ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
+# ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
+ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
 #2.48gb in version as of March 2025
 #pryr::object_size(ch)
 
@@ -84,9 +85,9 @@ toobig %>% filter(qg('south y',ITL221NM)) %>% View
 ch = ch %>% filter(!paste0(CompanyNumber,accountcode) %in% paste0(toobig$CompanyNumber,toobig$accountcode))
 
 #Save that version...
-saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
+saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
 
-ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
+ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
 
 
 

@@ -9,7 +9,7 @@ source('adhoc_functions.R')
 # Set up parallel processing (uses all available cores minus one)
 plan(multisession, workers = availableCores() - 1)
 
-ch = readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
+ch = readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
 
 # Nope, breaks!
 # clipr::write_clip(g(ch))
@@ -19,6 +19,8 @@ write_csv(sample_n(ch,500), 'local/sample_ch.csv')
 
 # We can just look at South Yorkshire and get a sense of the firms
 sy = ch %>% filter(ITL221NM == 'South Yorkshire')
+
+saveRDS(sy, 'local/sy_ch_PROCESSED_Dec2025.rds')
 
 # Breaking down size of firms
 #Code nabbed from bradford cluster qmd in regecon project
@@ -36,8 +38,6 @@ firmcount <- firmcount %>%
     ),
     sizecategory = factor(sizecategory, levels = c('1','2-4','5-9','10-20','21-50','51+'))
   )
-
-firmcount <- ch %>% st_set_geometry(NULL) %>% filter(localauthority_name == 'Bradford', Employees_thisyear > 0)
 
 firmcount <- firmcount %>% 
   mutate(
@@ -76,6 +76,10 @@ employees = firmcount %>%
 firmtable = bind_cols(firmtable,employees %>% select(-sizecategory))
 
 firmtable
+
+# How many firms with 5+ employees? 7089. OK then.
+firmcount %>% filter(Employees_thisyear > 4) %>% nrow()#7089 = 81% of employees in CH
+firmcount %>% filter(Employees_thisyear > 9) %>% nrow()#3661 = 65% of employees in CH
 
 # Testing Companies House / website search----
 
@@ -300,7 +304,6 @@ for(candidate in candidates){
 
 # Test Claude's batch version of the above...
 # Using furrr::future_map2_chr for parallel processing
-x = Sys.time()
 
 # 1.6 mins for 20 firms...
 # 3 mins for 60 firms
@@ -309,10 +312,12 @@ x = Sys.time()
 # That's 1868 + 1057 + 330 + 195 = 3450
 # 1868 + 1057 + 330 + 195 
 # Only 3 hours? Not disastrous
-((3450/60) * 3) /60
+# ((3450/60) * 3) /60
+
+x = Sys.time()
 
 # chk <- testfirms.false %>% slice(1:20) %>% 
-testfirms.false <- testfirms.false %>%
+testfirms <- sy100[1:10,] %>%
   mutate(
     validated_website = future_map2_chr(
       CompanyName,
@@ -402,29 +407,32 @@ result <- check_for_postcode("gripple.com", "S47UQ")
 result
 result$about_text  # Check if this is NA or has content
 
+clipr::write_clip(paste0(result$main_text,result$about_text))
+
 # Check for full search
 chk <- future_map2(
-  testfirms10to100$CompanyName[1:10],
-  testfirms10to100$postcode[1:10],
+  sy100$CompanyName[1:10],
+  sy100$postcode[1:10],
   find_validated_website,
   max_candidates = 10,
   .progress = TRUE
-) |> list_rbind()
+) |> bind_rows()# to tibble
+
+joined = sy100 %>% slice(1:10) %>% cbind(chk)
 
 # Might be a scope issue?
 # Check with known matches
-knownpositives = combo %>% filter(!is.na(validated_website_final))
+# knownpositives = combo %>% filter(!is.na(validated_website_final))
+# 
+# chk <- future_map2(
+#   knownpositives$CompanyName[1:10],
+#   knownpositives$postcode[1:10],
+#   find_validated_website,
+#   max_candidates = 10,
+#   .progress = TRUE
+# )
 
-chk <- future_map2(
-  knownpositives$CompanyName[1:10],
-  knownpositives$postcode[1:10],
-  find_validated_website,
-  max_candidates = 10,
-  .progress = TRUE
-)
 
-# to tibble
-chk %>% bind_rows()
 
 # 60kb for 10 firms. So roughly 350 times bigger for a decent number
 # Which would be ~20mb. Totally fine, huzzah.
@@ -462,14 +470,19 @@ x = get_page_content('gripple.com')
 # texts <- c("solar energy renewable power", "medical devices healthcare")
 # embeddings <- model$encode(texts)  # Returns matrix: n_texts × 384 dimensions
 
-ch %>% filter(qg('gripple', CompanyName)) %>% View
+# ch %>% filter(qg('gripple', CompanyName)) %>% View
+
+sectordefs = read_csv('data/sectordefs/foursector_definitions.csv')
+
+# Save reduced version, just two columns
+write_csv(sectordefs %>% select(sector_name,description),'data/sectordefs/foursector_definitions_twocols.csv')
 
 
+# Check batch outputs
 
-
-
-
-
+readRDS('local/website_validatebatches/directguess_batch1') %>% View
+readRDS('local/website_validatebatches/directguess_batch2') %>% View
+readRDS('local/website_validatebatches/directguess_batch3') %>% View
 
 
 
