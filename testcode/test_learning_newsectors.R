@@ -484,6 +484,11 @@ readRDS('local/website_validatebatches/directguess_batch1') %>% View
 readRDS('local/website_validatebatches/directguess_batch2') %>% View
 readRDS('local/website_validatebatches/directguess_batch3') %>% View
 
+table(!is.na(readRDS('local/website_validatebatches/directguess_batch1')$website))
+table(!is.na(readRDS('local/website_validatebatches/directguess_batch2')$website))
+table(!is.na(readRDS('local/website_validatebatches/directguess_batch3')$website))
+
+
 
 
 

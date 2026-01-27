@@ -19,7 +19,7 @@ plan(multisession, workers = availableCores() - 1)
 
 # Set up vars
 
-batchsize = 10#test size for each batch
+batchsize = 50#test size for each batch
 output_dir = 'local/website_validatebatches'
 
 # Get latest data for south yorkshire
@@ -31,7 +31,7 @@ sy = sy %>% filter(Employees_thisyear >= 10)
 
 # Test sample
 set.seed(67)
-sy = sy %>% sample_n(30)
+sy = sy %>% sample_n(150)
 
 # Check batch folder is made locally
 # (i.e. won't be github-synced, but could be dropbox synced if running different batches)
@@ -41,6 +41,8 @@ if (!dir.exists(output_dir)) dir.create(output_dir)
 
 # PROCESS EACH BATCH----
 
+y = Sys.time()
+
 batches <- sy %>%
   mutate(batchnum = ceiling(row_number() / batchsize)) %>%
   group_split(batchnum, .keep = FALSE)
@@ -48,6 +50,8 @@ batches <- sy %>%
 count <- 1
 
 for (batch in batches) {
+  
+  x = Sys.time()
   
   cat('Batch ', count, '\n')
   
@@ -69,6 +73,11 @@ for (batch in batches) {
     select(CompanyName,CompanyNumber,accountcode,localauthority_name,postcode) %>% 
   cbind(batchresult)
   
+  # Add in flag to show where any website came from
+  batchresult = batchresult %>% 
+    mutate(
+      website_source = ifelse(is.na(website), NA, 'direct_guess')
+    )
   
   # 2. For any fails there, try mojeek----
   mojeek_candidates_added = get_mojeek_candidates_batch(
@@ -97,6 +106,13 @@ for (batch in batches) {
     select(-c(website,main_text,about_text)) %>% 
     cbind(validate_websites_mojeek)
   
+  # Add in flag to show where any website came from
+  mojeek_firms = mojeek_firms %>% 
+    mutate(
+      website_source = ifelse(is.na(website), NA, 'mojeek_search')
+    )
+  
+  
   #Join both
   batchresultfinal = batchresult %>% 
     left_join(
@@ -106,7 +122,8 @@ for (batch in batches) {
     mutate(
       website = coalesce(website.x, website.y),
       main_text = coalesce(main_text.x, main_text.y),
-      about_text = coalesce(about_text.x, about_text.y)
+      about_text = coalesce(about_text.x, about_text.y),
+      website_source = coalesce(website_source.x, website_source.y)
       ) %>% 
     select(-contains(c('.x','.y')))
   
@@ -114,9 +131,13 @@ for (batch in batches) {
   
   count <- count + 1
   
+  print('Batch time:')
+  print(Sys.time() - x)
+  
 }
 
-
+print('Total time:')
+print(Sys.time() - y)
 
 
 
