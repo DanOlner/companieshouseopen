@@ -383,6 +383,50 @@ table(sapply(results10to100, "[[", 1))
 
 
 
+# Check latest refactor that lets us keep clean text...
+# chk = pmap(testfirms10to100[1:10,], check_for_postcode)
+
+# Does this return the expected list?
+# Test with a known positive from the main page, get also about page text
+find_validated_website(
+  testfirms.false$CompanyName[2], 
+  testfirms.false$postcode[2],
+  max_candidates = 10
+)
+
+
+# Check directly
+result <- check_for_postcode("gripple.com", "S47UQ")
+result
+result$about_text  # Check if this is NA or has content
+
+# Check for full search
+chk <- future_map2(
+  testfirms10to100$CompanyName[1:10],
+  testfirms10to100$postcode[1:10],
+  find_validated_website,
+  max_candidates = 10,
+  .progress = TRUE
+) |> list_rbind()
+
+# Might be a scope issue?
+# Check with known matches
+knownpositives = combo %>% filter(!is.na(validated_website_final))
+
+chk <- future_map2(
+  knownpositives$CompanyName[1:10],
+  knownpositives$postcode[1:10],
+  find_validated_website,
+  max_candidates = 10,
+  .progress = TRUE
+)
+
+# to tibble
+chk %>% bind_rows()
+
+# 60kb for 10 firms. So roughly 350 times bigger for a decent number
+# Which would be ~20mb. Totally fine, huzzah.
+pryr::object_size(chk)
 
 
 # Testing storing the website text so we don't have to get it twice 

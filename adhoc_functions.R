@@ -252,10 +252,30 @@ return_all_existing_candidate_domains <- function(company_name) {
 
 
 
+#' Clean text from an already-parsed HTML document
+#'
+#' Removes script, style, nav, etc. and returns cleaned text.
+#' Works on the doc in place, so pass a copy if you need the original.
+clean_doc_text <- function(doc) {
+  if (is.null(doc)) return(NA_character_)
+
+  tryCatch({
+    # Clone the doc by re-parsing (xml_new_root doesn't reliably clone documents)
+    doc_copy <- read_html(as.character(doc))
+
+    # Remove script, style, noscript, nav, footer, header tags
+    xml_remove(html_elements(doc_copy, "script, style, noscript, nav, footer, header"))
+
+    # Extract and clean text
+    doc_copy |> html_text2() |> tolower() |> str_squish()
+  }, error = function(e) NA_character_)
+}
+
 #' Fetch page and return both text and parsed HTML document
 #'
 #' Single HTTP request that returns everything needed for postcode checking
 #' and link extraction, avoiding duplicate fetches.
+#' Returns raw text (for postcode matching) and cleaned text (for analysis).
 get_page_content <- function(domain, subdomain = NULL, timeout = 10) {
   url <- paste0("https://", domain)
   if (!is.null(subdomain)) url <- paste0(url, "/", subdomain)
@@ -269,16 +289,17 @@ get_page_content <- function(domain, subdomain = NULL, timeout = 10) {
       req_perform()
 
     if (resp_status(resp) >= 400) {
-      return(list(text = NULL, doc = NULL, success = FALSE))
+      return(list(text = NULL, doc = NULL, clean_text = NA_character_, success = FALSE))
     }
 
     doc <- resp_body_html(resp)
     page_text <- doc |> html_text() |> tolower()
+    clean_text <- clean_doc_text(doc)
 
-    list(text = page_text, doc = doc, success = TRUE)
+    list(text = page_text, doc = doc, clean_text = clean_text, success = TRUE)
 
   }, error = function(e) {
-    list(text = NULL, doc = NULL, success = FALSE)
+    list(text = NULL, doc = NULL, clean_text = NA_character_, success = FALSE)
   })
 }
 
@@ -294,23 +315,18 @@ get_links_from_doc <- function(doc) {
 
 get_clean_text <- function(domain) {
   url <- paste0("https://", domain)
-  
+
   tryCatch({
     resp <- request(url) |>
       req_timeout(10) |>
       req_error(is_error = ~ FALSE) |>
       req_perform()
-    
+
     if (resp_status(resp) >= 400) return(NA_character_)
-    
+
     doc <- resp_body_html(resp)
-    
-    # Remove script, style, noscript, nav, footer, header tags
-    xml_remove(html_elements(doc, "script, style, noscript, nav, footer, header"))
-    
-    # Now extract text
-    doc |> html_text2() |> tolower() |> str_squish()
-    
+    clean_doc_text(doc)
+
   }, error = function(e) NA_character_)
 }
 
@@ -363,6 +379,18 @@ get_clean_text <- function(domain) {
 
 
 
+#' Check for postcode and extract cleaned text from website
+#'
+#' Fetches main page and about page, returning cleaned text from both.
+#' Only fetches contact page if postcode not yet found.
+#'
+#' @param website Domain to check
+#' @param postcode Postcode to search for (spaces will be removed for matching)
+#' @param ... Additional arguments (ignored, allows use with pmap)
+#' @return A list with:
+#'   - validated: TRUE if postcode found, FALSE otherwise
+#'   - main_text: cleaned text from main page
+#'   - about_text: cleaned text from about page (NA if not found)
 check_for_postcode <- function(website, postcode, ...) {
 
   # Helper to check postcode in text
@@ -380,45 +408,74 @@ check_for_postcode <- function(website, postcode, ...) {
     paste0("https://", base, "/", path)
   }
 
-  # Fetch main page ONCE - get both text and parsed doc
+  # Initialize result
+  result <- list(
+    validated = FALSE,
+    main_text = NA_character_,
+    about_text = NA_character_
+  )
 
+  # Fetch main page ONCE - get both text and parsed doc
   content <- get_page_content(website)
 
-  if (!content$success) return(FALSE)
+  if (!content$success) return(result)
 
-  # Check main page text
-  if (postcode_in_text(content$text)) {
-    cat('Tick!\n')
-    return(TRUE)
+  # Store cleaned main page text
+
+  result$main_text <- content$clean_text
+
+  # Check main page for postcode
+  postcode_found <- postcode_in_text(content$text)
+  if (postcode_found) {
+    cat('Tick! (main page)\n')
+    result$validated <- TRUE
   }
 
-  # Get links from the ALREADY FETCHED document (no second request!)
+  # Get links from the ALREADY FETCHED document
   all_links <- get_links_from_doc(content$doc)
 
-  if (length(all_links) == 0) return(FALSE)
+  if (length(all_links) == 0) return(result)
 
-  # Check contact/about pages
-  page_patterns <- c("contact", "about")
+  # ALWAYS fetch about page for its content
+  about_link <- all_links[qg("about", all_links)][1]
+  cat("Trying about page: \n", about_link,"\n")
 
-  for (pattern in page_patterns) {
-    cat(paste0("Trying ", pattern, " page...\n"))
+  if (!is.na(about_link)) {
+    full_url <- make_absolute(about_link, website)
+    subpage_domain <- gsub("^https?://", "", full_url)
 
-    matching_link <- all_links[qg(pattern, all_links)][1]
+    about_content <- get_page_content(subpage_domain)
 
-    if (!is.na(matching_link)) {
-      full_url <- make_absolute(matching_link, website)
-      subpage_domain <- gsub("^https?://", "", full_url)
+    if (about_content$success) {
+      result$about_text <- about_content$clean_text
 
-      subpage_content <- get_page_content(subpage_domain)
-
-      if (postcode_in_text(subpage_content$text)) {
-        cat('Tick!\n')
-        return(TRUE)
+      # Check about page for postcode if not yet found
+      if (!result$validated && postcode_in_text(about_content$text)) {
+        cat('Tick! (about page)\n')
+        result$validated <- TRUE
       }
     }
   }
 
-  FALSE
+  # Only check contact page if postcode still not found
+  if (!result$validated) {
+    cat("Trying contact page...\n")
+    contact_link <- all_links[qg("contact", all_links)][1]
+
+    if (!is.na(contact_link)) {
+      full_url <- make_absolute(contact_link, website)
+      subpage_domain <- gsub("^https?://", "", full_url)
+
+      contact_content <- get_page_content(subpage_domain)
+
+      if (contact_content$success && postcode_in_text(contact_content$text)) {
+        cat('Tick! (contact page)\n')
+        result$validated <- TRUE
+      }
+    }
+  }
+
+  result
 }
 
 
@@ -426,22 +483,33 @@ check_for_postcode <- function(website, postcode, ...) {
 #'
 #' Gets all candidate domains for a company name, then checks each one
 #' to see if the company's postcode appears on the site. Returns the first
-#' website that contains the postcode.
+#' website that contains the postcode, along with the scraped text.
 #'
 #' @param company_name Company name to generate domain candidates from
 #' @param postcode Postcode to look for on the website (spaces removed)
-#' @param max_candidates Maximum number of candidate websites to check (default NULL = no limit)
+#' @param max_candidates Maximum number of candidate websites to check (default 5)
 #' @param verbose Print progress messages (default TRUE)
-#' @return The first validated website URL, or NA_character_ if none found
+#' @return A list with:
+#'   - website: The validated website URL, or NA_character_ if none found
+#'   - main_text: Cleaned text from main page
+#'   - about_text: Cleaned text from about page
 find_validated_website <- function(company_name, postcode, max_candidates = 5, verbose = TRUE) {
+
+  # Initialize empty result
+
+  empty_result <- list(
+    website = NA_character_,
+    main_text = NA_character_,
+    about_text = NA_character_
+  )
 
   # Get all existing domain candidates
   candidates <- return_all_existing_candidate_domains(company_name)
 
-  # If no candidates exist, return NA
+  # If no candidates exist, return empty
   if (length(candidates) == 1 && is.na(candidates)) {
     if (verbose) cat("No domain candidates found for:", company_name, "\n")
-    return(NA_character_)
+    return(empty_result)
   }
 
   # Limit candidates if max_candidates is set
@@ -456,20 +524,24 @@ find_validated_website <- function(company_name, postcode, max_candidates = 5, v
   for (candidate in candidates) {
     if (verbose) cat("  Testing:", candidate, "... ")
 
-    result <- tryCatch(
+    check_result <- tryCatch(
       check_for_postcode(candidate, postcode),
-      error = function(e) FALSE
+      error = function(e) list(validated = FALSE, main_text = NA_character_, about_text = NA_character_)
     )
 
-    if (result) {
+    if (check_result$validated) {
       if (verbose) cat("VALIDATED\n")
-      return(candidate)
+      return(list(
+        website = candidate,
+        main_text = check_result$main_text,
+        about_text = check_result$about_text
+      ))
     } else {
       if (verbose) cat("no match\n")
     }
   }
 
   if (verbose) cat("No validated website found for:", company_name, "\n")
-  return(NA_character_)
+  return(empty_result)
 }
 
