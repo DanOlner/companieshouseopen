@@ -758,6 +758,9 @@ tm_shape(sy %>% filter(CompanyNumber %in% advm$CompanyNumber), is.main = T) +
 # CHECK TESTFIT OUTPUT BEFORE PROVIDING PROPER EXAMPLES----
 
 # Just trained on claude-provided diffs. Not enough of them really, but let's see.
+# OK, this is so much better than the previous attempt
+# And we haven't added in specific training text yet - 
+# Something that with this approach can be done openly
 testfit.result = arrow::read_parquet('local/samplebatch_setfit_classified.parquet')
 
 tfl = testfit.result %>% 
@@ -767,11 +770,57 @@ tfl = testfit.result %>%
 ggplot(tfl, aes(x = score, y = sector)) +
   geom_jitter(height = 0.2, alpha = 0.5)
 
+# Note the negative corr if comparing ones not lower down
 pairs(
   testfit.result %>% 
     select(setfit_health_tech:setfit_advanced_manufacturing), 
   # filter_at(vars(starts_with('setfit')),  all_vars(. > 0.5))
   panel = panel.smooth)
+
+
+
+
+# Link up with geodata...
+sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
+
+# Just keep matches for now
+sy = sy %>% 
+  inner_join(
+    testfit.result %>% select(CompanyName,CompanyNumber,accountcode,website,website_source,setfit_health_tech:setfit_best_sector),
+    by = c('CompanyName','CompanyNumber','accountcode')
+  )
+
+
+
+tmap_mode('plot')
+
+p = tm_basemap("OpenStreetMap", alpha = 0.5) +
+  tm_shape(sy, is.main = T) +
+  tm_symbols(
+    fill = 'setfit_advanced_manufacturing',
+    col = 'white',
+    size = 0.5,
+    fill.scale = tm_scale_continuous(values = "-matplotlib.rd_yl_gn")
+  )
+
+p
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
