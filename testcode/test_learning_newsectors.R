@@ -784,17 +784,44 @@ pairs(
 sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
 
 # Just keep matches for now
-sy = sy %>% 
+sy = sy %>%
   inner_join(
     testfit.result %>% select(CompanyName,CompanyNumber,accountcode,website,website_source,setfit_health_tech:setfit_best_sector),
     by = c('CompanyName','CompanyNumber','accountcode')
   )
+
+# Clean invalid UTF-8 characters from text columns that break tmap
+# (web-scraped text often contains malformed characters)
+clean_utf8 <- function(x) {
+  if (is.character(x)) {
+    iconv(x, from = "UTF-8", to = "UTF-8", sub = "")
+  } else {
+    x
+  }
+}
+
+sy <- sy %>% mutate(across(where(is.character), clean_utf8))
+
+# Make a masking layer
+mask = st_bbox(sy) %>% st_as_sfc()
+
+mask = st_buffer(mask, dist = 10000, endCapStyle = "SQUARE")
+
+sy_shp = st_read("~/Code/RegionalEconomicTools/data/ITL_geographies/International_Territorial_Level_2_January_2021_UK_BFE_V2_2022_-4735199360818908762/ITL2_JAN_2021_UK_BFE_V2.shp") %>% filter(ITL221NM == 'South Yorkshire')
+
+# Leave a hole for SY to show through
+mask = st_difference(mask, sy_shp)
+
+# Save mask for use elsewhere
+saveRDS(mask,'local/symask.rds')
 
 
 
 tmap_mode('plot')
 
 p = tm_basemap("OpenStreetMap", alpha = 0.5) +
+  tm_shape(mask) +#add in masking layer for rest of basemap
+  tm_polygons(col = 'white', fill = 'white') +
   tm_shape(sy, is.main = T) +
   tm_symbols(
     fill = 'setfit_advanced_manufacturing',
@@ -804,6 +831,121 @@ p = tm_basemap("OpenStreetMap", alpha = 0.5) +
   )
 
 p
+
+
+# Let's try the hexmap approach
+# One idea: summing employee count and weighting by prob advanced manufacturing
+# Not sure that'll work, it'll hide diffs, but let's try and iterate
+
+# Get hex set up first
+# From AI economy work / sector_linkages.R
+# And also then from regecons/yorkshire and humber data prep
+sq = st_make_grid(sy, cellsize = 1000, square = F)
+
+#Turn into sf object so gridsquares can have IDs to group by
+sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
+
+# Get both
+overlay <- st_intersection(sy,sq)
+
+#This no longer needs to be geo, which will speed up
+#Can link back to grids once done
+hexsummary <- overlay %>% 
+  st_set_geometry(NULL) %>% 
+  group_by(id) %>% 
+  summarise(
+    totalemployees_thisyear = sum(Employees_thisyear),
+    totalemployees_lastyear = sum(Employees_lastyear),
+    total_setfit_health_tech = sum(setfit_health_tech),
+    total_setfit_clean_energy = sum(setfit_clean_energy),
+    total_setfit_defence = sum(setfit_defence),
+    total_setfit_advanced_manufacturing = sum(setfit_advanced_manufacturing),
+    totalfirms = n()
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    healthtech_score = totalemployees_thisyear * total_setfit_health_tech,
+    cleanenergy_score = totalemployees_thisyear * total_setfit_clean_energy,
+    defence_score = totalemployees_thisyear * total_setfit_defence,
+    advmanuf_score = totalemployees_thisyear * total_setfit_advanced_manufacturing,
+  )
+
+
+#Link that back into the grid squares...
+#Use right join to drop empties
+sq.ch <- sq %>% 
+  right_join(
+    hexsummary,
+    by = 'id'
+  ) 
+# %>% 
+#   filter(total_meanemployees >= 25)
+
+tm_basemap("OpenStreetMap", alpha = 0.6) +
+  tm_shape(mask) +#add in masking layer for rest of basemap
+  tm_polygons(col = 'white', fill = 'white') +
+  tm_shape(sy_shp, is.main = TRUE) +
+  # tm_polygons(fill = '#a6baa8') +
+  # tm_polygons(fill = 'white', fill_alpha = 0.6) +
+  tm_shape(sq.ch) +
+  tm_polygons(
+    # fill = "advmanuf_score", 
+    fill = "total_setfit_advanced_manufacturing", 
+    # id="hovertext",
+    fill.scale = tm_scale_intervals(style = "fisher", n = 5, values = "-matplotlib.rd_bu"),
+    fill.legend = tm_legend(position = tm_pos_out("right", "center")),
+    # fill.scale = tm_scale_intervals(style = "kmeans", n = 4, values = "matplotlib.rd_yl_bu"),
+    col_alpha = 0.5
+  ) +
+  tm_shape(sy_shp) +
+  tm_borders(col_alpha = 0.3)
+
+
+# Oh actually, this is totally a good one for a bivariate, no?
+sq.ch <- sq.ch %>% 
+  mutate(hovertext = paste0("Firm count: ",totalfirms, ", employees: ",totalemployees_thisyear))
+
+# tmap_mode('view')
+tmap_mode('plot')
+
+p = tm_basemap("OpenStreetMap", alpha = 0.6) +
+  tm_shape(mask) +#add in masking layer for rest of basemap
+  tm_polygons(col = 'white', fill = 'white') +
+  tm_shape(sy_shp, is.main = TRUE) +
+  # tm_shape(sq.ch %>% rename(sector = total_setfit_advanced_manufacturing,empl = totalemployees_thisyear)) +
+  tm_shape(sq.ch %>% rename(sector = total_setfit_advanced_manufacturing,empl = totalemployees_thisyear)) +
+  tm_polygons(
+    fill = tm_vars(c("sector", "empl"),
+                   # fill = tm_vars(c("aug", "repl"),
+                   multivariate = TRUE), id="hovertext",
+    fill.scale = 
+      tm_scale_bivariate(
+        scale1 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
+        scale2 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
+        # values = "stevens.bluered")) +
+        values = "bu_br_bivs")) +
+  # tm_view(set.view = c(7, 51, 4)) +
+  # tm_shape(sy) +
+  # tm_borders(col = 'black', lwd = 1, fill_alpha = 0.3) +
+  tm_shape(sy_shp) +
+  tm_borders(col = 'black', lwd = 4) 
+  # tm_view(set_view = c(-2.2,53.49326048352635,11))#centred on GM
+
+tmap_save(p, 'local/images/maps/adv.jpeg', width = 8, height = 6)
+# tmap_save(p, paste0('local/images/maps/',gsub('[[:punct:]]| ','',sector),'.jpeg'), width = 5, height = 4)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
