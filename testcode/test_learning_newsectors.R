@@ -490,6 +490,67 @@ table(!is.na(readRDS('local/website_validatebatches/directguess_batch3')$website
 
 
 
+# Some tests on samples to get set up----
+
+# First, what's in one of the batch results?
+# Ah - it recylced the 10 rows I put in and just ran it five times
+# Hence why I used so much of the mojeev data
+b = readRDS('local/website_validatebatches/backup/websitevalidate_batch11')
+
+# So just checking on a FULL batch I'm just running...
+# Yeah that looks a lot better!
+fb = readRDS('local/website_validatebatches/websitevalidate_batch1')
+
+# OK, let's use the sample to test the ML run while that's completing
+# Pull out the first 10 from each batch, those ones should be valid
+getfirst10 = function(filename){
+  df = readRDS(filename)
+  df %>% slice(1:10)
+}
+  
+filenames = list.files('local/website_validatebatches/backup', full.names = T)
+
+samplebatch = map(filenames, getfirst10) %>% bind_rows()
+
+# What's the hit rate? Probably a decent rep sample here
+# Not bad at all, 42%
+table(!is.na(samplebatch$website))
+table(!is.na(samplebatch$website)) %>% prop.table() * 100
+
+saveRDS(samplebatch, 'local/samplebatch.rds')
+
+
+
+# TEST PROCESS WEB VALIDATED FIRMS READY FOR SECTOR SCORES----
+
+# Testing with the combined sample batch above, 740 firms
+# This'll let us set everything up, test timings etc
+
+samplebatch = readRDS('local/samplebatch.rds')
+
+# Python will want a combined 'site_text' from the about page, that's all I need to alter
+samplebatch = samplebatch %>% 
+  unite(site_text, c("main_text", "about_text"), remove = F) %>% 
+  mutate(
+    site_text = ifelse(site_text == 'NA_NA', NA, site_text)#fails to combine NAs properly
+  )
+
+# Check that made strings twice as long... tick
+samplebatch %>% mutate(across(site_text:about_text, str_length))
+
+# Keep only rows with data it can use
+samplebatch.withsites = samplebatch %>% filter(!is.na(website))
+
+# Save as parquet to translate over to python
+# arrow::write_parquet(samplebatch.withsites,'local/samplebatch.parquet')
+
+# test small sample
+set.seed(67)
+arrow::write_parquet(samplebatch.withsites %>% sample_n(10),'local/samplebatch.parquet')
+
+
+
+
 
 
 

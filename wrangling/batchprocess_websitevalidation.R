@@ -30,8 +30,8 @@ sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
 sy = sy %>% filter(Employees_thisyear >= 10)
 
 # Test sample
-set.seed(67)
-sy = sy %>% sample_n(150)
+# set.seed(67)
+# sy = sy %>% sample_n(150)
 
 # Check batch folder is made locally
 # (i.e. won't be github-synced, but could be dropbox synced if running different batches)
@@ -47,21 +47,32 @@ batches <- sy %>%
   mutate(batchnum = ceiling(row_number() / batchsize)) %>%
   group_split(batchnum, .keep = FALSE)
 
+cat('Number of batches: ', length(batches),'\n')
+
 count <- 1
 
 for (batch in batches) {
   
+  # Test break
+  # if(count == 4) break
+  
   x = Sys.time()
   
   cat('Batch ', count, '\n')
+  
+  # Check batch doesn't already exist
+  
+  filename = paste0(output_dir,'/websitevalidate_batch',count)
+  
+  if(!file.exists(filename)){
   
   ## 1. Direct website guesses----
   
   cat('Direct website guesses...\n')
   
   batchresult <- future_map2(
-    batch$CompanyName[1:10],
-    batch$postcode[1:10],
+    batch$CompanyName,
+    batch$postcode,
     find_validated_website,
     max_candidates = 10,
     .progress = TRUE
@@ -127,12 +138,18 @@ for (batch in batches) {
       ) %>% 
     select(-contains(c('.x','.y')))
   
-  saveRDS(batchresultfinal, paste0(output_dir,'/directguess_batch',count))
-  
-  count <- count + 1
+  saveRDS(batchresultfinal, paste0(output_dir,'/websitevalidate_batch',count))
   
   print('Batch time:')
   print(Sys.time() - x)
+  
+  } else {
+    
+    cat('Batch file already present, moving on.\n')
+    
+  }
+  
+  count <- count + 1
   
 }
 
