@@ -1218,3 +1218,109 @@ def classify_sectors_with_health_tech_filter(text, general_model, sector_embeddi
 
     return general_scores
 ```
+
+---
+
+## Health Tech vs Health Non-Tech: Positive Correlation Considerations
+
+When using embedding similarity for sector classification, health_tech and health_nontech scores often correlate positively. This section explores why and what to do about it.
+
+### Why Positive Correlation Happens
+
+1. **Shared vocabulary**: Both sectors use words like "health", "patient", "care", "clinical", "medical". Embedding models capture this surface-level similarity.
+
+2. **Embedding space geometry**: Cosine similarity measures angle, not position. Two sector reference points can both be "close" to a company text if they occupy nearby regions of the embedding space. Health-related concepts cluster together.
+
+3. **all-MiniLM-L6-v2 limitations**: This model (384 dimensions, 22M parameters) is optimised for speed and general semantic similarity, not fine-grained domain distinctions. It wasn't trained to distinguish "tech company in health domain" from "health service provider".
+
+4. **Reference description overlap**: If both sector descriptions contain similar terms, their embeddings will be similar, making discrimination harder.
+
+### Can You Still Separate Them?
+
+**Yes, but not directly from raw similarity scores.** Options:
+
+| Approach | How It Works | When to Use |
+|----------|--------------|-------------|
+| **Score difference** | `health_tech - health_nontech` | Quick fix; works if tech firms score higher on tech than nontech |
+| **Score ratio** | `health_tech / health_nontech` | Similar to difference; may amplify small distinctions |
+| **Rank-based** | Use relative ranking across all sectors | If absolute scores are unreliable but ordering is meaningful |
+| **Binary classifier** | Train separate model on health_tech vs health_nontech | Best accuracy; requires labelled examples |
+
+### Factors Affecting Discriminability
+
+1. **Website text quality**
+   - Homepages often contain marketing fluff, not discriminative content
+   - "About" pages may be more informative
+   - Some firms have minimal text (brochure sites)
+   - Boilerplate (cookie notices, footer links) adds noise
+
+2. **Model capacity**
+   - all-MiniLM-L6-v2: Fast but limited nuance
+   - all-mpnet-base-v2: Better quality, 2x slower
+   - BGE/GTE models: State-of-art, require more compute
+   - Domain-specific models: PubMedBERT etc. for health text
+
+3. **Genuine conceptual overlap**
+   - Some firms legitimately straddle both (e.g., digital health platform that also provides care)
+   - The boundary may be fuzzy in reality, not just in the model
+
+4. **Sector description engineering**
+   - Current descriptions may not emphasise discriminative features
+   - Adding "NOT a care home, NOT a GP surgery" doesn't help embeddings (they don't handle negation)
+   - Need to emphasise what makes tech different: "software", "devices", "R&D", "platform", "AI"
+
+### Diagnostic Steps
+
+```python
+# 1. Check correlation empirically
+import numpy as np
+scores = result_df[["sim_health_tech", "sim_health_nontech"]].dropna()
+print(f"Correlation: {scores.corr().iloc[0,1]:.3f}")
+
+# 2. Look at score distributions
+scores.plot.scatter(x="sim_health_tech", y="sim_health_nontech")
+
+# 3. Check separation
+scores["diff"] = scores["sim_health_tech"] - scores["sim_health_nontech"]
+print(scores["diff"].describe())
+
+# 4. Examine edge cases - high on both
+ambiguous = result_df[
+    (result_df["sim_health_tech"] > 0.4) &
+    (result_df["sim_health_nontech"] > 0.4)
+]
+print(ambiguous[["CompanyName", "sim_health_tech", "sim_health_nontech"]].head(20))
+```
+
+### Recommendations
+
+1. **First**: Check empirical correlation and score distributions. If correlation is >0.7, raw scores won't discriminate well.
+
+2. **Quick fix**: Use `health_tech - health_nontech` as a derived feature. Positive = likely tech, negative = likely care provider.
+
+3. **Better fix**: Rewrite sector descriptions to maximise contrast:
+   - health_tech: emphasise "software platform", "medical devices", "diagnostic equipment", "biotech R&D", "clinical AI", "health data analytics"
+   - health_nontech: emphasise "care home", "nursing", "GP surgery", "dental practice", "physiotherapy", "domiciliary care"
+
+4. **Best fix**: Train a binary SetFit classifier with 10-20 examples of each. This learns the boundary directly rather than relying on pre-computed embeddings.
+
+5. **Model upgrade**: Try `all-mpnet-base-v2` (768 dims) or `BAAI/bge-small-en-v1.5` for better semantic discrimination.
+
+### Example: Improved Sector Descriptions
+
+```python
+# More discriminative descriptions
+SECTOR_DESCRIPTIONS = {
+    "health_tech": """Medical technology company developing software platforms,
+    diagnostic devices, clinical AI systems, or pharmaceutical products.
+    Focus on R&D, innovation, medical devices, health data analytics,
+    telemedicine platforms, biotech research, wearable health sensors.""",
+
+    "health_nontech": """Healthcare service provider such as care home,
+    nursing home, GP surgery, dental practice, physiotherapy clinic,
+    domiciliary care agency, or hospital. Delivers patient care,
+    medical appointments, residential support, or clinical treatments."""
+}
+```
+
+The key is to use vocabulary that appears in one type but not the other.

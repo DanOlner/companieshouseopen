@@ -21,7 +21,7 @@ def load_sector_definitions(csv_path=None):
     if csv_path is None:
         # Default path relative to this script
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(script_dir, "..", "data", "sectordefs", "foursector_definitions_twocols.csv")
+        csv_path = os.path.join(script_dir, "..", "data", "sectordefs", "foursector_definitions_twocols_withother.csv")
 
     df = pd.read_csv(csv_path)
     return dict(zip(df["sector_name"], df["description"]))
@@ -110,7 +110,8 @@ def classify_dataframe(df, text_column, model, sector_embeddings, batch_size=32)
 # Only run if script run directly, not if imported
 if __name__ == "__main__":
     # 1. Load model (first run downloads it)
-    model = load_model("all-MiniLM-L6-v2")
+    # model = load_model("all-MiniLM-L6-v2")
+    model = load_model("BAAI/bge-large-en-v1.5")
 
     # 2. Pre-compute sector embeddings
     sector_embeddings = get_sector_embeddings(model)

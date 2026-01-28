@@ -15,3 +15,5 @@
 local/
 cuttinz/
 data/backups/
+models/
+python/checkpoints

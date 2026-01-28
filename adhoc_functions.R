@@ -609,7 +609,8 @@ find_validated_website <- function(company_name, postcode, candidates = NULL, ma
 # API key set via keyring - no plain text anywhere
 # keyring::key_set("MOJEEK_KEY")
 mojeek_search_urls <- function(q, api_key, n = 10) {
-  req <- request("https://www.mojeek.com/search") |>
+  req <- request("https://api.mojeek.com/search") |>
+  # req <- request("https://www.mojeek.com/search") |>
     req_url_query(
       api_key = api_key,
       q = q,

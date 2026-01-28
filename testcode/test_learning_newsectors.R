@@ -2,9 +2,14 @@
 library(tidyverse)
 library(clipr)
 library(sf)
+library(tmap)
 library(furrr)
+library(plotly)
+library(DataEditR)
 source('functions.R')
 source('adhoc_functions.R')
+
+options(scipen = 999)
 
 # Set up parallel processing (uses all available cores minus one)
 plan(multisession, workers = availableCores() - 1)
@@ -150,7 +155,7 @@ set.seed(67)
 # Dropped to 1.2 minutes with extra variations to check
 # Which still shouldn't take much more than 30 minutes to check all SY 10+ employee firms
 set.seed(67)
-testfirms = sy100 %>% sample_n(100) 
+testfirms = sy %>% sample_n(100) 
 
 # The first of these is correct...
 generate_domain_candidates(testfirms$CompanyName[1])
@@ -508,25 +513,43 @@ getfirst10 = function(filename){
   df %>% slice(1:10)
 }
   
-filenames = list.files('local/website_validatebatches/backup', full.names = T)
+# filenames = list.files('local/website_validatebatches/backup', full.names = T)
+# 
+# samplebatch = map(filenames, getfirst10) %>% bind_rows()
+# 
+# # What's the hit rate? Probably a decent rep sample here
+# # Not bad at all, 42%
+# table(!is.na(samplebatch$website))
+# table(!is.na(samplebatch$website)) %>% prop.table() * 100
+# 
+# saveRDS(samplebatch, 'local/samplebatch.rds')
 
-samplebatch = map(filenames, getfirst10) %>% bind_rows()
+
+# We got most of the results now, so that'll be more firms
+# Let's try and use those... can then just run this to get all
+# First entry is backup folder, don't keep that
+filenames = list.files('local/website_validatebatches', full.names = T)
+filenames = filenames[2:length(filenames)]
+
+samplebatch = map(filenames, readRDS) %>% bind_rows()
 
 # What's the hit rate? Probably a decent rep sample here
-# Not bad at all, 42%
+# Not bad at all, 42.7%
 table(!is.na(samplebatch$website))
 table(!is.na(samplebatch$website)) %>% prop.table() * 100
 
-saveRDS(samplebatch, 'local/samplebatch.rds')
+saveRDS(samplebatch, 'local/samplebatch2.rds')
 
 
 
 # TEST PROCESS WEB VALIDATED FIRMS READY FOR SECTOR SCORES----
 
+# Checking again after adding 'other' category to the sentence_transformer scorer
+
 # Testing with the combined sample batch above, 740 firms
 # This'll let us set everything up, test timings etc
 
-samplebatch = readRDS('local/samplebatch.rds')
+samplebatch = readRDS('local/samplebatch2.rds')
 
 # Python will want a combined 'site_text' from the about page, that's all I need to alter
 samplebatch = samplebatch %>% 
@@ -541,16 +564,214 @@ samplebatch %>% mutate(across(site_text:about_text, str_length))
 # Keep only rows with data it can use
 samplebatch.withsites = samplebatch %>% filter(!is.na(website))
 
+# How many did each method get?
+# Aroun 78% guess to mojeek 22%. Not a great loss if we don't spend money on that search.
+# Should compare to brave, though pricing there for storage rules it out...
+# 1565 firms is the final number with matching websites, out of 3661 firms
+table(samplebatch.withsites$website_source) %>% prop.table() * 100
+
 # Save as parquet to translate over to python
-# arrow::write_parquet(samplebatch.withsites,'local/samplebatch.parquet')
+arrow::write_parquet(samplebatch.withsites,'local/samplebatch.parquet')
 
 # test small sample
 set.seed(67)
-arrow::write_parquet(samplebatch.withsites %>% sample_n(10),'local/samplebatch.parquet')
+arrow::write_parquet(samplebatch.withsites %>% sample_n(10),'local/samplebatch_testsmall.parquet')
+
+# Test processed...
+# 315 firms in 2 seconds!
+# Rerun with BAAI/bge-large-en-v1.5 - 1 minute for 315. Still fine.
+sectorresult = arrow::read_parquet('local/samplebatch_firms_classified.parquet')
+saveRDS(sectorresult,'local/sectorscores_sample.rds')
+
+
+# CHECKS ON SAMPLE OF OUTPUT SECTOR SCORES----
+
+# Rerunning for larger model
+
+# From sector result above
+sectorresult = readRDS('local/sectorscores_sample.rds')
+
+# Let's just look at spread of values first.
+# For which they'll need to be long.
+# Before normalising them...
+sl = sectorresult %>% 
+  select(sim_health_tech:sim_other) %>% 
+  pivot_longer(cols = sim_health_tech:sim_other, names_to = 'sector', values_to = 'score')
+
+ggplot(sl, aes(x = score, y = sector)) +
+  geom_jitter(height = 0.2, alpha = 0.5)
+
+# Other basic checks
+# Opposite sectors?
+# They shouldn't necessary be negatively correlated...?
+cor(sectorresult$sim_clean_energy, sectorresult$sim_not_clean_energy)
+cor(sectorresult$sim_health_tech, sectorresult$sim_health_non_tech)
+
+# All?
+pairs(sectorresult %>% select(sim_health_tech:sim_other), panel = panel.smooth)
+
+# Let's look at those for specific firms
+ggplot(sectorresult, aes(x = sim_health_tech, y = sim_health_non_tech)) +
+  geom_point()
+
+ggplot(sectorresult, aes(x = sim_clean_energy, y = sim_not_clean_energy)) +
+  geom_point()
+
+ggplot(sectorresult, aes(x = sim_advanced_manufacturing, y = sim_manufacturing_not_advanced)) +
+  geom_point()
+
+
+# Testing versions where we find a difference score for those
+# We can then look at a few...
+sectorresult = sectorresult %>% 
+  mutate(
+    healthtech_diff = sim_health_tech - sim_health_non_tech,
+    cleantech_diff = sim_clean_energy - sim_not_clean_energy,
+    advmanuf_diff = sim_advanced_manufacturing - sim_manufacturing_not_advanced
+  )
+
+diffscores = sectorresult %>% 
+  select(healthtech_diff:advmanuf_diff) %>% 
+  pivot_longer(healthtech_diff:advmanuf_diff, names_to = 'sector', values_to = 'score')
+
+ggplot(diffscores, aes(x = score, y = sector)) +
+  geom_jitter(height = 0.2, alpha = 0.5) +
+  geom_vline(xintercept = 0)
+
+# Diff scores *by themselves* don't help - they'll tell us the health score diff
+# For firms with no health connection
+
+# Let's have a preview of what were highest scoring sectors, see if that gets anyhere close
+sectorresult %>% filter(best_sector == 'health_tech') %>% arrange(desc(sim_health_tech)) %>% View
+
+# Yeah as suspected, that's not useful in a context where we're not getting scores for all other sectors
+# Using the raw scores might be a better approach, plus possibly a SetFit approach
+
+# Attempt to make a scorer in the CSV that scores 'other' and can try to rule out being any of our other sectors
+# Save all sector text as the source
+# We'll have more of this soon, but...
+# write_csv(sectorresult %>% select(CompanyName,site_text), 'local/allfirmwebtext.csv')
+# write_csv(sectorresult %>% select(CompanyName,site_text), 'data/allfirmwebtext.csv')
+
+# Now we've got 'other'...
+# Simple test - exclude any whether 'other' score is higher
+# Alternative: where 'other' score is some SD higher once normalised
+othertest1 = sectorresult %>% 
+  mutate(
+    across(sim_health_tech:sim_manufacturing_not_advanced, ~. > sim_other, .names = "other_is_lower_{col}" )
+  )
+
+# How many does that exclude from each category?
+
+# Check on specific sector...
+healthtech = othertest1 %>% 
+  filter(
+    other_is_lower_sim_health_tech,
+    best_sector == 'health_tech'
+    ) %>% 
+  arrange(desc(sim_health_tech))
+
+cleantech = othertest1 %>% 
+  filter(
+    other_is_lower_sim_health_tech,
+    best_sector == 'clean_energy'
+    ) %>% 
+  arrange(desc(sim_clean_energy))
+
+advm = othertest1 %>% 
+  filter(
+    other_is_lower_sim_advanced_manufacturing,
+    best_sector == 'advanced_manufacturing'
+    ) %>% 
+  arrange(desc(sim_advanced_manufacturing))
+
+# Better! Not perfect. Some actual training might work better.
+
+# Test manually marking successes and fails to help update learning
+# sectorresult$manual_check = FALSE
+# sectorresult.edit = sectorresult %>% select(-c(site_text,main_text,about_text))
+# out <- data_edit(sectorresult.edit)
 
 
 
+# EXPLORE MAP MAKING OPTIONS----
 
+# Maybe use the advm result first as it looks pretty spot on. Can check for type 1/2 errors at some point.
+
+# First, link back up with main SY CH file
+sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
+
+# Just keep matches for now
+sy = sy %>% 
+  inner_join(
+    sectorresult %>% select(CompanyName,CompanyNumber,accountcode,website,website_source,sim_health_tech:advmanuf_diff),
+    by = c('CompanyName','CompanyNumber','accountcode')
+  )
+
+# Some quick checks...
+ggplot(sy, aes(x = sim_advanced_manufacturing, y = SIC_SECTION_NAME)) +
+  geom_jitter(height = 0.2, alpha = 0.5)
+
+# Or...
+ggplot(
+  sy %>% select(SIC_SECTION_NAME, sim_health_tech:sim_other) %>% 
+    pivot_longer(cols = sim_health_tech:sim_other, names_to = 'sim_sector', values_to = 'score'),
+  aes(x = score, y = SIC_SECTION_NAME)) +
+  geom_jitter(height = 0.2, alpha = 0.5) +
+  facet_wrap(~sim_sector)
+
+# Oh of course it'll be the same number of firms in each... not the best way to do that
+
+
+
+# Try various direct mappings before tidying
+# Note, age of firm should prob correlate to advancedness? Hmm a bit
+# cor(sy$age_of_firm_years,sy$sim_advanced_manufacturing)
+
+p = tm_basemap("OpenStreetMap", alpha = 0.5) +
+  tm_shape(sy, is.main = T) +
+  tm_symbols(
+    fill = 'sim_advanced_manufacturing',
+    col = 'white',
+    size = 0.5,
+    fill.scale = tm_scale_continuous(values = "-matplotlib.rd_yl_gn")
+    )
+
+p
+
+# Interactive...
+tmap_mode('view')
+
+# Just a selection of advanced manuf
+tm_shape(sy %>% filter(CompanyNumber %in% advm$CompanyNumber), is.main = T) +
+  tm_symbols(
+    fill = 'sim_advanced_manufacturing',
+    # fill = 'sim_clean_energy',
+    # fill = 'sim_health_tech',
+    col = 'white',
+    size = 'Employees_thisyear',
+    fill.scale = tm_scale_continuous(values = "-matplotlib.rd_yl_gn")
+  )
+
+
+
+# CHECK TESTFIT OUTPUT BEFORE PROVIDING PROPER EXAMPLES----
+
+# Just trained on claude-provided diffs. Not enough of them really, but let's see.
+testfit.result = arrow::read_parquet('local/samplebatch_setfit_classified.parquet')
+
+tfl = testfit.result %>% 
+  select(setfit_health_tech:setfit_advanced_manufacturing) %>% 
+  pivot_longer(cols = setfit_health_tech:setfit_advanced_manufacturing, names_to = 'sector', values_to = 'score')
+
+ggplot(tfl, aes(x = score, y = sector)) +
+  geom_jitter(height = 0.2, alpha = 0.5)
+
+pairs(
+  testfit.result %>% 
+    select(setfit_health_tech:setfit_advanced_manufacturing), 
+  # filter_at(vars(starts_with('setfit')),  all_vars(. > 0.5))
+  panel = panel.smooth)
 
 
 
