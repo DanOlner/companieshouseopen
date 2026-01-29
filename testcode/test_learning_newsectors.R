@@ -777,6 +777,20 @@ pairs(
   # filter_at(vars(starts_with('setfit')),  all_vars(. > 0.5))
   panel = panel.smooth)
 
+# Compare some pairs directly
+# Yeah these all look very sensible, though would have to look at specific firms.
+ggplot(testfit.result, aes(x = setfit_health_tech, y = setfit_advanced_manufacturing)) +
+  geom_point()
+
+ggplot(testfit.result, aes(x = setfit_health_tech, y = setfit_clean_energy)) +
+  geom_point()
+
+ggplot(testfit.result, aes(x = setfit_advanced_manufacturing, y = setfit_clean_energy)) +
+  geom_point()
+
+
+
+
 
 
 
@@ -845,31 +859,58 @@ sq = st_make_grid(sy, cellsize = 1000, square = F)
 #Turn into sf object so gridsquares can have IDs to group by
 sq <- sq %>% st_sf() %>% mutate(id = 1:nrow(.))
 
+# Long version of sy firm data so we can sum by sector grouping
+# sy.long = sy %>% 
+#   select(Employees_thisyear,setfit_health_tech:setfit_advanced_manufacturing) %>% 
+#   pivot_longer(
+#     cols = c(Employees_thisyear,setfit_health_tech:setfit_advanced_manufacturing),
+#     names_to = 'sector',
+#     values_to = 'score'
+#     )
+
+# Ah no, wait
+# It'll be the same number of firms regardless - 
+# We have a score for each of the four sectors, for all firms
+# For that to differ, we'd need to select a cutoff and just use those
+
+# So let's normalise and then choose a cutoff
+sy = sy %>% 
+  mutate(
+    across(setfit_health_tech:setfit_advanced_manufacturing, ~as.numeric(scale(.)), .names = "{col}_normalised" )
+  )
+
+# Check... yep
+sy %>% summarise(across(contains('normalised'), ~mean(.)))
+sy %>% summarise(across(contains('normalised'), ~sd(.)))
+
+
+# So now make long then choose a z-score cutoff
+sy.long = sy %>%
+  select(Employees_thisyear,contains('normalised')) %>%
+  pivot_longer(
+    cols = c(contains('normalised')),
+    names_to = 'sector',
+    values_to = 'score'
+    ) %>% 
+  filter(score > 1)
+
+# Should at some point check firm overlap
+table(sy.long$sector)
+
 # Get both
-overlay <- st_intersection(sy,sq)
+overlay <- st_intersection(sy.long,sq)
 
 #This no longer needs to be geo, which will speed up
 #Can link back to grids once done
 hexsummary <- overlay %>% 
   st_set_geometry(NULL) %>% 
-  group_by(id) %>% 
+  group_by(id,sector) %>% 
   summarise(
     totalemployees_thisyear = sum(Employees_thisyear),
-    totalemployees_lastyear = sum(Employees_lastyear),
-    total_setfit_health_tech = sum(setfit_health_tech),
-    total_setfit_clean_energy = sum(setfit_clean_energy),
-    total_setfit_defence = sum(setfit_defence),
-    total_setfit_advanced_manufacturing = sum(setfit_advanced_manufacturing),
+    total_score = sum(score),
     totalfirms = n()
   ) %>%
-  ungroup() %>% 
-  mutate(
-    healthtech_score = totalemployees_thisyear * total_setfit_health_tech,
-    cleanenergy_score = totalemployees_thisyear * total_setfit_clean_energy,
-    defence_score = totalemployees_thisyear * total_setfit_defence,
-    advmanuf_score = totalemployees_thisyear * total_setfit_advanced_manufacturing,
-  )
-
+  ungroup()
 
 #Link that back into the grid squares...
 #Use right join to drop empties
@@ -887,10 +928,10 @@ tm_basemap("OpenStreetMap", alpha = 0.6) +
   tm_shape(sy_shp, is.main = TRUE) +
   # tm_polygons(fill = '#a6baa8') +
   # tm_polygons(fill = 'white', fill_alpha = 0.6) +
-  tm_shape(sq.ch) +
+  tm_shape(sq.ch %>% filter(sector == 'setfit_advanced_manufacturing_normalised')) +
   tm_polygons(
     # fill = "advmanuf_score", 
-    fill = "total_setfit_advanced_manufacturing", 
+    fill = "setfit_advanced_manufacturing_normalised", 
     # id="hovertext",
     fill.scale = tm_scale_intervals(style = "fisher", n = 5, values = "-matplotlib.rd_bu"),
     fill.legend = tm_legend(position = tm_pos_out("right", "center")),
@@ -901,6 +942,177 @@ tm_basemap("OpenStreetMap", alpha = 0.6) +
   tm_borders(col_alpha = 0.3)
 
 
+
+
+
+## REPEAT FOR A SINGLE PER-SECTOR WEIGHTED AVERAGE----
+
+# So we don't need to make long by sector
+# And can use the weighted score as a cutoff instead
+
+# Link up with geodata...
+sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
+
+# Just keep matches for now
+sy = sy %>%
+  inner_join(
+    testfit.result %>% select(CompanyName,CompanyNumber,accountcode,website,website_source,setfit_health_tech:setfit_best_sector),
+    by = c('CompanyName','CompanyNumber','accountcode')
+  )
+
+# Clean invalid UTF-8 characters from text columns that break tmap
+# (web-scraped text often contains malformed characters)
+clean_utf8 <- function(x) {
+  if (is.character(x)) {
+    iconv(x, from = "UTF-8", to = "UTF-8", sub = "")
+  } else {
+    x
+  }
+}
+
+sy <- sy %>% mutate(across(where(is.character), clean_utf8))
+
+# Actually, longer makes this tidier overall...
+# This will (should!) have all the same employee counts per scetor
+sy.long = sy %>%
+  select(Employees_thisyear,setfit_health_tech:setfit_advanced_manufacturing) %>%
+  pivot_longer(
+    cols = c(contains('setfit')),
+    names_to = 'sector',
+    values_to = 'score'
+  )  
+  # filter(score > 1)
+
+# Confirm same number of rows per sector, same employee count
+# Tick
+# sy.long %>% 
+#   st_set_geometry(NULL) %>% 
+#   group_by(sector) %>% 
+#   summarise(
+#     sum(Employees_thisyear),
+#     count = n()
+#   )
+
+
+# Get both
+overlay <- st_intersection(sy.long,sq)
+
+#This no longer needs to be geo, which will speed up
+#Can link back to grids once done
+hexsummary <- overlay %>% 
+  st_set_geometry(NULL) %>% 
+  group_by(id,sector) %>% 
+  summarise(
+    totalemployees_thisyear = sum(Employees_thisyear),
+    weighted_score = weighted.mean(score,Employees_thisyear),
+    totalfirms = n()
+  ) %>%
+  ungroup()
+
+
+# Add in scaled versions of the weighted score so cutoff is consistent
+hexsummary = hexsummary %>% 
+  group_by(sector) %>% 
+  mutate(zscore = scale(weighted_score)) %>% 
+  ungroup()
+
+# Check... tick
+# hexsummary %>% 
+#   group_by(sector) %>% 
+#   summarise(
+#     mean(zscore),
+#     sd(zscore)
+#   )
+
+# Add in weighted averages of separate scores
+# hexsummary <- overlay %>% 
+#   st_set_geometry(NULL) %>% 
+#   group_by(id) %>% 
+#   summarise(
+#     totalemployees_thisyear = sum(Employees_thisyear),
+#     weighted_setfit_health_tech = weighted.mean(setfit_health_tech,Employees_thisyear),
+#     weighted_setfit_health_tech = weighted.mean(AIIEfinal,Employees_thisyear),
+#     weighted_setfit_health_tech = weighted.mean(AIIEfinal,Employees_thisyear),
+#     weighted_setfit_health_tech = weighted.mean(AIIEfinal,Employees_thisyear)
+#     totalfirms = n()
+#   ) %>%
+#   ungroup()
+
+# Firm count per hex (div 4 cos it's repeated four times for each sector)
+table(hexsummary$totalfirms)/4
+
+# Add in better sector labels
+hexsummary = hexsummary %>% 
+  mutate(
+    sectordisplayname = case_when(
+      qg('adv', sector) ~ 'Advanced manufacturing',
+      qg('clean', sector) ~ 'Clean energy',
+      qg('defence', sector) ~ 'Defence',
+      qg('health', sector) ~ 'Health tech'
+    )
+  )
+
+
+#Link that back into the grid squares...
+#Use right join to drop empties
+sq.ch <- sq %>% 
+  right_join(
+    hexsummary,
+    by = 'id'
+  ) 
+# %>% 
+#   filter(total_meanemployees >= 25)
+
+sect = 'setfit_clean_energy'
+sect = 'setfit_health_tech'
+sect = 'setfit_defence'
+sect = 'setfit_advanced_manufacturing'
+
+
+# Function up for ease of map output
+outputsetfitmap = function(sectr, firmcutoff, scorecutoff){
+
+p = tm_basemap("OpenStreetMap", alpha = 0.6) +
+  tm_shape(mask) +#add in masking layer for rest of basemap
+  tm_polygons(col = 'white', fill = 'white') +
+  tm_shape(sy_shp, is.main = TRUE) +
+  # tm_polygons(fill = '#a6baa8') +
+  # tm_polygons(fill = 'white', fill_alpha = 0.6) +
+  tm_shape(sq.ch %>%
+             filter(
+               sector == sectr,
+               totalfirms > firmcutoff,
+               weighted_score > scorecutoff
+               )
+           ) +
+  tm_polygons(
+    fill = "zscore", 
+    # id="hovertext",
+    fill.scale = tm_scale_intervals(style = "pretty", n = 5, values = "-matplotlib.rd_bu"),
+    fill.legend = tm_legend(position = tm_pos_out("right", "center")),
+    # fill.scale = tm_scale_intervals(style = "kmeans", n = 4, values = "matplotlib.rd_yl_bu"),
+    col_alpha = 0.5
+  ) +
+  tm_shape(sy_shp) +
+  tm_borders(col_alpha = 0.3) +
+  tm_title(sq.ch %>% st_set_geometry(NULL) %>% filter(sector == sectr) %>% select(sectordisplayname) %>% distinct() %>% pull)
+
+  tmap_save(p, paste0('local/images/maps/weightedscore_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
+  
+}
+
+sects = c(
+  'setfit_clean_energy',
+  'setfit_health_tech',
+  'setfit_defence',
+  'setfit_advanced_manufacturing'
+)
+
+map(sects, outputsetfitmap, firmcutoff = 1, scorecutoff = 0)
+
+
+## BIVARIATES---- 
+
 # Oh actually, this is totally a good one for a bivariate, no?
 sq.ch <- sq.ch %>% 
   mutate(hovertext = paste0("Firm count: ",totalfirms, ", employees: ",totalemployees_thisyear))
@@ -908,64 +1120,52 @@ sq.ch <- sq.ch %>%
 # tmap_mode('view')
 tmap_mode('plot')
 
-p = tm_basemap("OpenStreetMap", alpha = 0.6) +
-  tm_shape(mask) +#add in masking layer for rest of basemap
-  tm_polygons(col = 'white', fill = 'white') +
-  tm_shape(sy_shp, is.main = TRUE) +
-  # tm_shape(sq.ch %>% rename(sector = total_setfit_advanced_manufacturing,empl = totalemployees_thisyear)) +
-  tm_shape(sq.ch %>% rename(sector = total_setfit_advanced_manufacturing,empl = totalemployees_thisyear)) +
-  tm_polygons(
-    fill = tm_vars(c("sector", "empl"),
-                   # fill = tm_vars(c("aug", "repl"),
-                   multivariate = TRUE), id="hovertext",
-    fill.scale = 
-      tm_scale_bivariate(
-        scale1 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
-        scale2 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
-        # values = "stevens.bluered")) +
-        values = "bu_br_bivs")) +
-  # tm_view(set.view = c(7, 51, 4)) +
-  # tm_shape(sy) +
-  # tm_borders(col = 'black', lwd = 1, fill_alpha = 0.3) +
-  tm_shape(sy_shp) +
-  tm_borders(col = 'black', lwd = 4) 
-  # tm_view(set_view = c(-2.2,53.49326048352635,11))#centred on GM
+outputsetfitmap_bivariate = function(sectr, firmcutoff, scorecutoff){
 
-tmap_save(p, 'local/images/maps/adv.jpeg', width = 8, height = 6)
-# tmap_save(p, paste0('local/images/maps/',gsub('[[:punct:]]| ','',sector),'.jpeg'), width = 5, height = 4)
+  p = tm_basemap("OpenStreetMap", alpha = 0.6) +
+    tm_shape(mask) +#add in masking layer for rest of basemap
+    tm_polygons(col = 'white', fill = 'white') +
+    tm_shape(sy_shp, is.main = TRUE) +
+    tm_shape(sq.ch %>% 
+               filter(
+                 sector == sectr,
+                 totalfirms > firmcutoff,
+                 weighted_score > scorecutoff
+                 ) %>% 
+               rename(empl = totalemployees_thisyear, score = weighted_score)
+             ) +
+    # tm_shape(sq.ch %>% rename(sector = total_setfit_advanced_manufacturing,empl = totalemployees_thisyear)) +
+    tm_polygons(
+      fill = tm_vars(c("zscore", "empl"),
+                     # fill = tm_vars(c("aug", "repl"),
+                     multivariate = TRUE), 
+      # id="hovertext",
+      fill.scale = 
+        tm_scale_bivariate(
+          scale1 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
+          scale2 = tm_scale_intervals(style = "fisher", n = 3, labels = c("L", "M", "H")),
+          # values = "stevens.bluered")) +
+          values = "bu_br_bivs")) +
+    # tm_view(set.view = c(7, 51, 4)) +
+    # tm_shape(sy) +
+    # tm_borders(col = 'black', lwd = 1, fill_alpha = 0.3) +
+    tm_shape(sy_shp) +
+    tm_borders(col = 'black', lwd = 4) +
+    tm_title(sq.ch %>% st_set_geometry(NULL) %>% filter(sector == sectr) %>% select(sectordisplayname) %>% distinct() %>% pull)
+  
+  # tmap_save(p, 'local/images/maps/adv.jpeg', width = 8, height = 6)
+  tmap_save(p, paste0('local/images/maps/bivariate_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
 
+}
 
+sects = c(
+  'setfit_clean_energy',
+  'setfit_health_tech',
+  'setfit_defence',
+  'setfit_advanced_manufacturing'
+)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+map(sects, outputsetfitmap_bivariate, firmcutoff = 1, scorecutoff = 0)
 
 
 

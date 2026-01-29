@@ -74,41 +74,141 @@ ch %>% filter(ITL221NM == "South Yorkshire")
 
 ---
 
-## Sector Classification via Website Text (Data City / RTIC approach)
+## ML/NLP Classification of Firms from Website Text
 
-Summary of how commercial providers infer bespoke sector types beyond SIC codes.
+Approaches and research on using machine learning and NLP to classify companies into bespoke sectors beyond standard SIC codes, using website text as the primary data source.
 
-### Key Finding: Website text is primary, not accounts
+### Why Website Text Beats SIC Codes
 
-Data City's "Real Time Industrial Classifications" (RTICs) are built primarily from **company website text**, not accounts filings. The [Cambridge Econometrics government report](https://assets.publishing.service.gov.uk/media/6880db342b6fd60b7c160f34/250723_Defining_and_Measuring_the_UK_Digital_Economy_publish.pdf) states RTICs use "machine learning and website scraping" to "group companies that describe their activity similarly in their website text."
+Standard Industrial Classification (SIC) codes have well-documented limitations for understanding firm activities:
 
-### The RTIC Pipeline
+- **Coarse granularity**: SIC codes are limited to ~700 categories, insufficient for emerging sectors like AI, cleantech, or health tech
+- **Self-reported and outdated**: Firms choose their own codes at registration and rarely update them
+- **"Other" category overuse**: Major companies like Amazon and Facebook fall into generic "other business services" categories
+- **No innovation signal**: A biotech R&D firm and a pharmaceutical distributor may share the same code
+- **Slow to adapt**: New industries (e.g., "prompt engineering", "carbon capture") have no SIC representation
 
-1. **Company ↔ URL matching** - Link Companies House entity to a website (the hardest part)
-2. **Website text capture** - Scrape homepage + key pages
-3. **Taxonomy + training set** - Define sectors, create small training sets (10-20 sites per vertical)
-4. **Supervised text classification** - ML model trained on website language
-5. **Expert QA loop** - Manual checking of samples, ~90% accuracy threshold
+Website text offers richer, more current information about what firms actually do. As [Marra & Baldassari (2022)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0270041) note, this allows understanding "what firms do in a more penetrating and updated way than referring to standard industrial classification codes."
+
+### The General Pipeline
+
+Whether commercial or research, most approaches follow a similar pattern:
+
+1. **Company ↔ URL matching** - Link Companies House entity to a website (often the hardest part)
+2. **Website text capture** - Scrape homepage + key pages (about, services)
+3. **Taxonomy definition** - Define target sectors with descriptions or example texts
+4. **Text classification** - ML model trained on website language (embeddings, transformers, or few-shot)
+5. **QA loop** - Manual checking of samples to refine training data
+
+### Research Examples
+
+#### Text Mining Instead of SIC Codes (Marra & Baldassari, 2022)
+
+This [PLOS ONE study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0270041) uses text mining and semantic algorithms to tag innovative firms from website and corporate purpose text. Key findings:
+
+- Extracts keywords to generate tags for firms' activities, specialisations, and competences
+- Enables measurement of "industrial proximity" by matching firms' keywords
+- Tested on 583 innovative firms in Italy
+- Code available on [GitHub](https://github.com/cbaldassari/2022-plosone)
+
+#### BERT for Industry Classification (Jagrič & Herman, 2024)
+
+This [MDPI study](https://www.mdpi.com/2078-2489/15/2/89) applies BERT to classify business descriptions into 13 industry categories:
+
+- Achieved 83.5%-92.6% accuracy across industry classes (88.23% overall, F1=0.88)
+- Can harness real-time web data for up-to-date classification
+- Demonstrates transformer models work well for this task
+
+#### Emerging Industry Classification with BERT (2024)
+
+A [ScienceDirect paper](https://www.sciencedirect.com/science/article/pii/S030643792400142X) focuses on classifying emerging industries:
+
+- Achieved 84.11%-99.66% accuracy across 16 industry classifications
+- Identifies clusters of firms transcending existing classification systems
+- Highlights how data-driven approaches adapt to changing industrial landscapes
+
+#### Comparative NLP Models for Company Classification (2024)
+
+This [MDPI comparative study](https://www.mdpi.com/2078-2489/15/2/77) tested multiple approaches:
+
+- Used RoBERTa-base transformer on Compustat dataset (44,033 US companies)
+- Enhanced zero-shot methodology using TF-IDF to extract sector-specific vocabulary
+- Explored ChatGPT for dataset generation where company descriptions are lacking
+
+### Few-Shot Learning with SetFit
+
+[SetFit](https://huggingface.co/blog/setfit) is particularly well-suited for firm classification because:
+
+- **Minimal labelled data**: Works with just 8-20 examples per class
+- **No prompts needed**: Unlike GPT-3, doesn't require prompt engineering
+- **Fast and cheap**: Trains in ~30 seconds on GPU, costs ~$0.025 vs $0.70 for T-Few
+- **Competitive accuracy**: Outperforms GPT-3 on RAFT benchmark while being 1600x smaller
+- **Calibrated probabilities**: Outputs meaningful confidence scores
+
+Recent [ModernBERT integration](https://moshewasserblat.medium.com/new-results-on-setfit-modernbert-for-text-classification-with-few-shot-training-53c154df7c0e) (2024) shows 50% improvement over baselines in few-shot scenarios.
+
+### Commercial Implementations
+
+**The Data City - Real-Time Industrial Classifications (RTICs)**
+
+The Data City developed RTICs as an alternative to SIC codes, classifying companies based on how they describe themselves on their websites. Their [methodology](https://thedatacity.com/blog/behind-the-scenes-of-rtic-creation/):
+
+- **Website text as primary signal**: Scrapes up to 75 pages per company for 1.6+ million UK firms
+- **Supervised ML approach**: Train classifier with positive examples (firms in target sector) and negative examples (firms outside sector) to identify discriminative keywords
+- **Expert QA loop**: Industry experts define taxonomies, validate results, maintain 90% minimum confidence threshold
+- **Multi-label classification**: Companies can belong to multiple RTICs, reflecting diverse business activities
+- **Coverage**: 500+ industry classifications across 9 million UK companies
+- **Update cycle**: Annual reviews with biannual updates for key sectors
+
+The UK Government adopted RTICs for [measuring the digital economy](https://www.gov.uk/government/publications/defining-and-measuring-the-uk-digital-economy/defining-and-measuring-the-uk-digital-economy-phase-2-report), noting they "provide a means of capturing 'true' company activity, especially for frontier sectors and technologies."
+
+**Dun & Bradstreet**
+
+D&B ran a proof of concept using deep learning for SIC classification on UK Companies House data, in partnership with Evolution AI. Key details from [InformationWeek coverage](https://www.informationweek.com/machine-learning-ai/dun-bradstreet-eyes-blockchain-machine-learning-projects):
+
+- Scraped website text for all UK companies and ran through neural network trained to determine company type
+- Deep learning approach "truly understands context and nuance" - e.g., recognising "CNC" means different things in engineering vs policing contexts
+- Results: 40% of primary SICs were changed to provide clearer classification; 6% were validated
+- Estimated manual equivalent: 2.5 years and $10 million to update the entire UK database
+- Adopted "human/machine hybrid approach" with algorithms as prep tools and humans for final verification
 
 ### Role of Companies House Data
 
 - **Entity anchoring**: CH identifiers used to match/validate website-to-company links
 - **Standard variables**: Employee counts, incorporation date, registered address for analysis
-- **NOT for classification**: No evidence they parse iXBRL narrative text to classify sectors
+- **Validation signal**: Postcode on website confirms correct company-URL match
+- **NOT for classification**: No evidence parsing iXBRL narrative text improves sector classification
 
 ### Implications for DIY Approach
 
-A lightweight version would need:
-- Reliable company → URL matching (often the bottleneck)
-- Website text extraction
-- Embeddings + similarity or simple supervised classifier
-- Manual QA on samples
+A lightweight version needs:
+- Reliable company → URL matching (often the bottleneck; ~40% success rate typical)
+- Website text extraction (homepage + about page)
+- Embeddings + similarity OR few-shot classifier (SetFit recommended)
+- Manual QA on samples (~50-100 labelled examples for validation)
 
 Firms without a matched website cannot be captured by this approach.
 
 ### Sources
-- [Cambridge Econometrics: Defining UK Digital Economy](https://assets.publishing.service.gov.uk/media/6880db342b6fd60b7c160f34/250723_Defining_and_Measuring_the_UK_Digital_Economy_publish.pdf)
-- [Data City: Behind the Scenes of RTIC Creation](https://thedatacity.com/blog/behind-the-scenes-of-rtic-creation/)
+
+**Research Papers**
+- [Marra & Baldassari (2022): Using text data instead of SIC codes](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0270041) - PLOS ONE
+- [Jagrič & Herman (2024): AI Model for Industry Classification](https://www.mdpi.com/2078-2489/15/2/89) - MDPI Information
+- [Emerging Industry Classification with BERT (2024)](https://www.sciencedirect.com/science/article/pii/S030643792400142X) - Information Systems
+- [Comparative Analysis of NLP Models (2024)](https://www.mdpi.com/2078-2489/15/2/77) - MDPI Information
+- [Business Trajectories with Transformer Classification](https://arxiv.org/pdf/2306.10034) - arXiv
+
+**Tools & Methods**
+- [SetFit: Few-Shot Learning](https://huggingface.co/blog/setfit) - Hugging Face
+- [SetFit with ModernBERT (2024)](https://moshewasserblat.medium.com/new-results-on-setfit-modernbert-for-text-classification-with-few-shot-training-53c154df7c0e) - Medium
+- [AWS: Fine-tuning Sentence Transformers](https://aws.amazon.com/blogs/machine-learning/create-and-fine-tune-sentence-transformers-for-enhanced-classification-accuracy/) - AWS ML Blog
+
+**Policy & Commercial**
+- [Cambridge Econometrics: Defining UK Digital Economy](https://assets.publishing.service.gov.uk/media/6880db342b6fd60b7c160f34/250723_Defining_and_Measuring_the_UK_Digital_Economy_publish.pdf) - UK Government
+- [UK Gov: Defining and Measuring the Digital Economy Phase 2](https://www.gov.uk/government/publications/defining-and-measuring-the-uk-digital-economy/defining-and-measuring-the-uk-digital-economy-phase-2-report) - Uses Data City RTICs
+- [The Data City: Behind the Scenes of RTIC Creation](https://thedatacity.com/blog/behind-the-scenes-of-rtic-creation/) - Methodology details
+- [The Data City: Real-Time SIC Codes](https://thedatacity.com/real-time-sic-codes/) - Product overview
+- [D&B: Blockchain and ML Projects](https://www.informationweek.com/machine-learning-ai/dun-bradstreet-eyes-blockchain-machine-learning-projects) - InformationWeek
 - [Beauhurst: Companies House Data](https://www.beauhurst.com/blog/companies-house-data/)
 
 ---
