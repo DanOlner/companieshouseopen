@@ -26,6 +26,7 @@ write_csv(sample_n(ch,500), 'local/sample_ch.csv')
 sy = ch %>% filter(ITL221NM == 'South Yorkshire')
 
 saveRDS(sy, 'local/sy_ch_PROCESSED_Dec2025.rds')
+sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
 
 # Breaking down size of firms
 #Code nabbed from bradford cluster qmd in regecon project
@@ -81,6 +82,9 @@ employees = firmcount %>%
 firmtable = bind_cols(firmtable,employees %>% select(-sizecategory))
 
 firmtable
+
+# Save for online table
+saveRDS(firmtable,'local/sy_firmtable.rds')
 
 # How many firms with 5+ employees? 7089. OK then.
 firmcount %>% filter(Employees_thisyear > 4) %>% nrow()#7089 = 81% of employees in CH
@@ -792,7 +796,7 @@ ggplot(testfit.result, aes(x = setfit_advanced_manufacturing, y = setfit_clean_e
 
 
 
-
+# SETFIT MAPS----
 
 # Link up with geodata...
 sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
@@ -1070,7 +1074,7 @@ sect = 'setfit_advanced_manufacturing'
 
 
 # Function up for ease of map output
-outputsetfitmap = function(sectr, firmcutoff, scorecutoff){
+outputsetfitmap = function(sectr, firmcutoff, employeescutoff, scorecutoff){
 
 p = tm_basemap("OpenStreetMap", alpha = 0.6) +
   tm_shape(mask) +#add in masking layer for rest of basemap
@@ -1082,6 +1086,7 @@ p = tm_basemap("OpenStreetMap", alpha = 0.6) +
              filter(
                sector == sectr,
                totalfirms > firmcutoff,
+               totalemployees_thisyear > employeescutoff,
                weighted_score > scorecutoff
                )
            ) +
@@ -1097,7 +1102,7 @@ p = tm_basemap("OpenStreetMap", alpha = 0.6) +
   tm_borders(col_alpha = 0.3) +
   tm_title(sq.ch %>% st_set_geometry(NULL) %>% filter(sector == sectr) %>% select(sectordisplayname) %>% distinct() %>% pull)
 
-  tmap_save(p, paste0('local/images/maps/weightedscore_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
+  tmap_save(p, paste0('docs/quarto/images/maps/weightedscore_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
   
 }
 
@@ -1108,7 +1113,7 @@ sects = c(
   'setfit_advanced_manufacturing'
 )
 
-map(sects, outputsetfitmap, firmcutoff = 1, scorecutoff = 0)
+map(sects, outputsetfitmap, firmcutoff = 0, employeescutoff = 25, scorecutoff = 0)
 
 
 ## BIVARIATES---- 
@@ -1120,7 +1125,7 @@ sq.ch <- sq.ch %>%
 # tmap_mode('view')
 tmap_mode('plot')
 
-outputsetfitmap_bivariate = function(sectr, firmcutoff, scorecutoff){
+outputsetfitmap_bivariate = function(sectr, firmcutoff, employeescutoff, scorecutoff){
 
   p = tm_basemap("OpenStreetMap", alpha = 0.6) +
     tm_shape(mask) +#add in masking layer for rest of basemap
@@ -1130,6 +1135,7 @@ outputsetfitmap_bivariate = function(sectr, firmcutoff, scorecutoff){
                filter(
                  sector == sectr,
                  totalfirms > firmcutoff,
+                 totalemployees_thisyear > employeescutoff,
                  weighted_score > scorecutoff
                  ) %>% 
                rename(empl = totalemployees_thisyear, score = weighted_score)
@@ -1150,11 +1156,11 @@ outputsetfitmap_bivariate = function(sectr, firmcutoff, scorecutoff){
     # tm_shape(sy) +
     # tm_borders(col = 'black', lwd = 1, fill_alpha = 0.3) +
     tm_shape(sy_shp) +
-    tm_borders(col = 'black', lwd = 4) +
+    tm_borders(col_alpha = 0.3) +
     tm_title(sq.ch %>% st_set_geometry(NULL) %>% filter(sector == sectr) %>% select(sectordisplayname) %>% distinct() %>% pull)
   
   # tmap_save(p, 'local/images/maps/adv.jpeg', width = 8, height = 6)
-  tmap_save(p, paste0('local/images/maps/bivariate_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
+  tmap_save(p, paste0('docs/quarto/images/maps/bivariate_',gsub('[[:punct:]]| ','',sectr),'.jpeg'), width = 8, height = 6)
 
 }
 
@@ -1165,7 +1171,7 @@ sects = c(
   'setfit_advanced_manufacturing'
 )
 
-map(sects, outputsetfitmap_bivariate, firmcutoff = 1, scorecutoff = 0)
+map(sects, outputsetfitmap_bivariate, firmcutoff = 0, employeescutoff = 25, scorecutoff = 0)
 
 
 

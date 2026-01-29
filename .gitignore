@@ -16,4 +16,5 @@ local/
 cuttinz/
 data/backups/
 models/
+test_accounts/
 python/checkpoints
