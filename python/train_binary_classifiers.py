@@ -92,7 +92,12 @@ SECTOR_TRAINING_DATA = {
             # Primary Care Doncaster
             """We work behind the scenes with local GP practices to provide additional essential care. 
             We support resilience and quality improvement within general practice and provide corporate support 
-            and infrastructure for PCNs and practices."""
+            and infrastructure for PCNs and practices.""",
+            """"Manufacturer of high-performance engine oils, gear oils, transmission fluids, 
+            coolants, brake fluids and industrial lubricants for automotive and industrial applications.""",
+            # Visiting angels
+            """Home care provider delivering professional and compassionate care services, 
+            supporting individuals with daily living activities and personal care in their own homes."""
         ],
     },
 
@@ -127,6 +132,14 @@ SECTOR_TRAINING_DATA = {
             "Clean energy consultancy helping organisations achieve net zero",
             "Carbon management and sustainability consultancy",
             "District heating network operator using waste heat recovery",
+
+            #Curated positives
+            """Power solutions to enable your energy transition Manage your commercial power more efficiently 
+            through our Voltage Optimisation, Low-Loss Transformers, and Battery Energy Storage Systems
+            """,
+            """We design and manufacture commercial energy solutions including voltage optimisation, 
+            battery energy storage systems, and energy-efficient transformers to support decarbonisation
+            and the electrification of industry."""
         ],
         "negative": [
             # Oil & gas / fossil fuels (key confusers!)
@@ -158,6 +171,11 @@ SECTOR_TRAINING_DATA = {
             "Recruitment agency for engineering sector",
             "IT managed services provider",
             "Commercial property management company",
+
+            # Curated examples
+            # Veedol
+            """Manufacturer of high-performance engine oils, gear oils, transmission fluids, 
+            coolants, brake fluids and industrial lubricants for automotive and industrial applications."""
         ],
     },
 
@@ -294,6 +312,15 @@ SECTOR_TRAINING_DATA = {
             "Health and safety training provider",
             "Accountancy and business advisory firm",
             "Commercial cleaning services",
+            
+            # Curated examples
+            # Ancient wisdom marketing
+            """Data-first digital marketing agency using advanced analytics, 
+            machine learning, and marketing automation to deliver SEO, social media, 
+            and programmatic advertising campaigns."""
+            """Marketing should be as rigorous and data-driven as software engineering.
+            We bridge the gap between creative strategy and technical execution."""
+
         ],
     },
 }
@@ -450,15 +477,34 @@ def test_classifier(model: SetFitModel, sector_name: str):
         print(f"{prob_positive:.2f} [{bar}] {marker} {text[:50]}...")
 
 
-def train_all_sectors():
-    """Train classifiers for all sectors defined in SECTOR_TRAINING_DATA."""
+def train_all_sectors(cross_list_positives: bool = False):
+    """
+    Train classifiers for all sectors defined in SECTOR_TRAINING_DATA.
+
+    Args:
+        cross_list_positives: If True, automatically add positives from other sectors
+                              as negatives for each classifier. This helps the model
+                              distinguish between the target sector and other defined sectors.
+    """
     trained_models = {}
 
     for sector_name, data in SECTOR_TRAINING_DATA.items():
+        positives = data["positive"]
+        negatives = data["negative"].copy()  # Copy to avoid modifying original
+
+        if cross_list_positives:
+            # Add positives from all OTHER sectors as negatives
+            for other_sector, other_data in SECTOR_TRAINING_DATA.items():
+                if other_sector != sector_name:
+                    negatives.extend(other_data["positive"])
+
+            print(f"\n{sector_name}: Adding {len(negatives) - len(data['negative'])} "
+                  f"cross-listed negatives from other sectors")
+
         model = train_binary_classifier(
             sector_name=sector_name,
-            positive_examples=data["positive"],
-            negative_examples=data["negative"],
+            positive_examples=positives,
+            negative_examples=negatives,
         )
         trained_models[sector_name] = model
 

@@ -580,6 +580,14 @@ samplebatch %>% mutate(across(site_text:about_text, str_length))
 # Keep only rows with data it can use
 samplebatch.withsites = samplebatch %>% filter(!is.na(website))
 
+# Filter out shorter text, often nothing valuable there causing cat errors
+# Value decided below
+samplebatch.withsites.filtered = samplebatch.withsites %>% 
+  mutate(
+    webtextchars = nchar(site_text)
+  ) %>% 
+  filter(webtextchars > 450)
+
 # How many did each method get?
 # Aroun 78% guess to mojeek 22%. Not a great loss if we don't spend money on that search.
 # Should compare to brave, though pricing there for storage rules it out...
@@ -587,7 +595,7 @@ samplebatch.withsites = samplebatch %>% filter(!is.na(website))
 table(samplebatch.withsites$website_source) %>% prop.table() * 100
 
 # Save as parquet to translate over to python
-arrow::write_parquet(samplebatch.withsites,'local/samplebatch.parquet')
+arrow::write_parquet(samplebatch.withsites.filtered,'local/samplebatch.parquet')
 
 # test small sample
 set.seed(67)
@@ -778,6 +786,37 @@ tm_shape(sy %>% filter(CompanyNumber %in% advm$CompanyNumber), is.main = T) +
 # And we haven't added in specific training text yet - 
 # Something that with this approach can be done openly
 testfit.result = arrow::read_parquet('local/samplebatch_setfit_classified.parquet')
+# testfit.result = arrow::read_parquet('local/samplebatch_setfit_classified2.parquet')
+
+# Let's just have a look at what got categorised as other
+# Cutoff is 'no other sector more than 0.5 score'
+
+# Which is just 'if no firm scored higher than 0.5, put in other category'
+# What's the percentages of those?
+# Very much smaller number huh?
+table(testfit.result$setfit_best_sector)
+table(testfit.result$setfit_best_sector) %>% prop.table() * 100
+
+# Let's look, reduced cols
+testfit.result %>% select(CompanyName,website,site_text,setfit_best_sector) %>% View
+
+
+
+# Other things to note e.g. for sheffield precision medical
+# That got > 0.5 for both health tech and adv manuf, so accurate
+# Other things - several marketing firms - not so much
+
+# Let's filter by some of those >0.5 combos
+testfit.result %>%
+  filter(setfit_clean_energy > 0.5 & setfit_advanced_manufacturing > 0.5) %>% 
+  # filter(setfit_health_tech > 0.5 & setfit_advanced_manufacturing > 0.5) %>% 
+  select(CompanyName,website,site_text,setfit_best_sector) %>% 
+  View
+
+
+
+
+
 
 tfl = testfit.result %>% 
   select(setfit_health_tech:setfit_advanced_manufacturing) %>% 
@@ -804,6 +843,35 @@ ggplot(testfit.result, aes(x = setfit_health_tech, y = setfit_clean_energy)) +
 ggplot(testfit.result, aes(x = setfit_advanced_manufacturing, y = setfit_clean_energy)) +
   geom_point()
 
+
+# Random bits - grab text
+clipr::write_clip(
+  # testfit.result %>% filter(qg('primary care donc', CompanyName)) %>% select(site_text) %>% pull
+  # testfit.result %>% filter(qg('emsc global', CompanyName)) %>% select(site_text) %>% pull
+  # testfit.result %>% filter(qg('visiting angels', CompanyName)) %>% select(site_text) %>% pull
+  testfit.result %>% filter(qg('ancient wisdom', CompanyName)) %>% select(site_text) %>% pull
+)
+
+
+
+
+
+# CHECK WEBSITE LENGTH / QUALITY OPTIONS----
+
+# Example: visiting angels' text is just:
+# skip to content_NA
+# So to start with, we can filter on text length.
+# Let's just check that...
+lengths = sapply(testfit.result$site_text, nchar)
+
+hist(lengths)
+table(lengths)
+
+# Let's just look at those to see about a sensisble cutoff
+testfit.result$textlength = lengths
+
+# Maybe 450 characters. How many does that lose? 3.3%
+(length(lengths[lengths < 450])/length(lengths))*100
 
 
 # Check keyword processing----
@@ -1132,6 +1200,14 @@ sects = c(
 )
 
 map(sects, outputsetfitmap, firmcutoff = 0, employeescutoff = 25, scorecutoff = 0)
+
+
+
+# USING 0.5 CLASSIFIERS TO MAKE MAP----
+
+
+
+
 
 
 ## BIVARIATES---- 
