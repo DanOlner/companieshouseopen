@@ -164,7 +164,7 @@ The UK Government adopted RTICs for [measuring the digital economy](https://www.
 
 **Dun & Bradstreet**
 
-D&B ran a proof of concept using deep learning for SIC classification on UK Companies House data, in partnership with Evolution AI. Key details from [InformationWeek coverage](https://www.informationweek.com/machine-learning-ai/dun-bradstreet-eyes-blockchain-machine-learning-projects):
+D&B ran a proof of concept using deep learning for SIC classification on UK Companies House data in 2018, in partnership with Evolution AI. Key details from [InformationWeek coverage](https://www.informationweek.com/machine-learning-ai/dun-bradstreet-eyes-blockchain-machine-learning-projects):
 
 - Scraped website text for all UK companies and ran through neural network trained to determine company type
 - Deep learning approach "truly understands context and nuance" - e.g., recognising "CNC" means different things in engineering vs policing contexts
@@ -219,7 +219,7 @@ Ideas for finding and validating company websites from Companies House names.
 
 ### Step 1: Search for Websites
 
-**Option A: Google Custom Search API**
+**Option A: Google Custom Search API (sadly no longer an option, Google is ending it)**
 ```r
 library(httr2)
 

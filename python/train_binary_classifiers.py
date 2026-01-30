@@ -42,7 +42,7 @@ SECTOR_TRAINING_DATA = {
             # Digital health / health software
             "AI-powered diagnostic platform helping radiologists detect cancer earlier",
             "Electronic health records software connecting GPs, hospitals and pharmacies",
-            "Telemedicine platform enabling remote consultations with specialists",
+            "Telemedicine platform enaInIbling remote consultations with specialists",
             "Clinical decision support software using machine learning",
             "Mobile health app for diabetes management and glucose tracking",
 
@@ -56,7 +56,8 @@ SECTOR_TRAINING_DATA = {
             # Health data / analytics
             "Health data analytics platform helping NHS trusts improve patient outcomes",
             "Population health management software for integrated care systems",
-            "Medical imaging AI company specialising in pathology analysis",
+            "Medical imaging AI company specialising in pathology analysis",         
+
         ],
         "negative": [
             # AI/ML/tech that is NOT health-related (key confusers!)
@@ -86,6 +87,12 @@ SECTOR_TRAINING_DATA = {
             "Web design agency creating websites for small businesses",
             "Commercial cleaning services for offices and industrial premises",
             "Construction company specialising in residential developments",
+
+            # Specific examples summarised from web text
+            # Primary Care Doncaster
+            """We work behind the scenes with local GP practices to provide additional essential care. 
+            We support resilience and quality improvement within general practice and provide corporate support 
+            and infrastructure for PCNs and practices."""
         ],
     },
 

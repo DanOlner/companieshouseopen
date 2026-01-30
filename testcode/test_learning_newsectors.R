@@ -16,17 +16,29 @@ plan(multisession, workers = availableCores() - 1)
 
 ch = readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
 
-# Nope, breaks!
-# clipr::write_clip(g(ch))
+# Get a sample of other firms for training the setfit model with non-southyorkshire data
+# We can expect to get about 400 website validations from 1000 firms with 10+ employees
+ch_trainingsample = ch %>% 
+  filter(
+    Employees_thisyear >= 10,
+    ITL221NM != 'South Yorkshire'
+  ) %>% 
+  sample_n(1000)
 
-# Save sample
-write_csv(sample_n(ch,500), 'local/sample_ch.csv')
+saveRDS(ch_trainingsample, 'local/ch_trainingsample.rds')
+
+# Save sample in CSV
+# write_csv(sample_n(ch,500), 'local/sample_ch.csv')
+
+
 
 # We can just look at South Yorkshire and get a sense of the firms
 sy = ch %>% filter(ITL221NM == 'South Yorkshire')
 
 saveRDS(sy, 'local/sy_ch_PROCESSED_Dec2025.rds')
 sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
+
+
 
 # Breaking down size of firms
 #Code nabbed from bradford cluster qmd in regecon project
@@ -759,7 +771,7 @@ tm_shape(sy %>% filter(CompanyNumber %in% advm$CompanyNumber), is.main = T) +
 
 
 
-# CHECK TESTFIT OUTPUT BEFORE PROVIDING PROPER EXAMPLES----
+# CHECK SETFIT OUTPUT BEFORE PROVIDING PROPER EXAMPLES----
 
 # Just trained on claude-provided diffs. Not enough of them really, but let's see.
 # OK, this is so much better than the previous attempt
@@ -793,6 +805,12 @@ ggplot(testfit.result, aes(x = setfit_advanced_manufacturing, y = setfit_clean_e
   geom_point()
 
 
+
+# Check keyword processing----
+
+# OK speed for this number, not superfast if more.
+# 1565 took 30 minutes
+keywords = arrow::read_parquet('local/samplebatch_keywords.parquet')
 
 
 

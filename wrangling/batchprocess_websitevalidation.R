@@ -4,7 +4,7 @@
 # First - guess website name. Faster, surprisingly accurate if trying several obvious guesses.
 # Second - use mojeek's API to get top results and use those.
 # If either having a matching postcode in the main, about or contact page, validate.
-# And keep the main and about page text for using in sector_embeddings.py to get sector prob scores
+# And keep the main and about page text for using in sector_embeddings.py or the setfit scripts to get sector prob scores
 # ---
 # Save the results in batches in case anything breaks along the way
 # Combine when finished
@@ -25,9 +25,13 @@ output_dir = 'local/website_validatebatches'
 # Get latest data for south yorkshire
 # filtered in @testcode/test_learning_newsectors.R
 sy = readRDS('local/sy_ch_PROCESSED_Dec2025.rds')
-
 # Just doing firms with 10+ employees for now
 sy = sy %>% filter(Employees_thisyear >= 10)
+
+
+# Process training sample - firms not in South Yorkshire
+# Already filtered to 10+ employees
+sy = readRDS('local/ch_trainingsample.rds')
 
 # Test sample
 # set.seed(67)
@@ -62,7 +66,8 @@ for (batch in batches) {
   
   # Check batch doesn't already exist
   
-  filename = paste0(output_dir,'/websitevalidate_batch',count)
+  # filename = paste0(output_dir,'/websitevalidate_batch_',count)
+  filename = paste0(output_dir,'/websitevalidate_batch_traininsample_',count)
   
   if(!file.exists(filename)){
   
@@ -138,7 +143,7 @@ for (batch in batches) {
       ) %>% 
     select(-contains(c('.x','.y')))
   
-  saveRDS(batchresultfinal, paste0(output_dir,'/websitevalidate_batch',count))
+  saveRDS(batchresultfinal, filename)
   
   print('Batch time:')
   print(Sys.time() - x)
