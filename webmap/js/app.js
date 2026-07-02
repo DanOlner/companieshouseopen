@@ -8,7 +8,7 @@ import { exportCsv } from './export.js';
 const DATA_URL = 'data/companieshouse_sy.csv';
 
 const $ = (id) => document.getElementById(id);
-const state = { metric: 'count', tmMetric: 'count', selection: null, plotted: [] };
+const state = { metric: 'count', tmMetric: 'emp', selection: null, plotted: [] };
 
 let rows, headers, filters, map, treemap;
 
