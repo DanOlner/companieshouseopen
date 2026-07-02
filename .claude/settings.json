@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import yaml; data = yaml.safe_load\\(open\\(''../training_data/sectors/health_tech.yaml''\\)\\); print\\(f''positives: {len\\(data[\"\"positive\"\"]\\)}, negatives: {len\\(data[\"\"negative\"\"]\\)}''\\)\")",
+      "Bash(unzip -l \"local/monthly_companieshouse_accounts/Accounts_Monthly_Data-June2025.zip\")",
+      "Bash(unzip -t \"local/monthly_companieshouse_accounts/Accounts_Monthly_Data-June2025.zip\")",
+      "Read(//Users/danolner/.cache/huggingface/hub/**)",
+      "Read(//Users/danolner/.cache/torch/**)",
+      "Bash(awk -F',' '{print NF}')",
+      "Bash(awk -F',' '{print $22}')",
+      "Bash(awk -F',' '{print $4}')",
+      "Bash(gh api *)",
+      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless=new --disable-gpu --no-first-run --no-default-browser-check --user-data-dir=/private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/chrome-profile --enable-logging=stderr --v=0 --virtual-time-budget=30000 --dump-dom http://127.0.0.1:8777/index.html)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(break)",
+      "Bash(pkill -f \"Google Chrome.*headless\")",
+      "Bash(node verify.mjs)",
+      "Bash(node verify2.mjs)",
+      "Bash(pkill -f \"http.server 8777\")",
+      "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:8777 -sTCP:LISTEN)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp"
+    ]
+  }
+}

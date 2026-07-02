@@ -691,5 +691,44 @@ get_mojeek_candidates_batch <- function(df, delay_seconds = 0.12, ...) {
 }
 
 
+#' Extract cleaned text from a manually supplied URL
+#'
+#' Fetches main page and about page (if found), returning combined cleaned text.
+#'
+#' @param url Full URL (with or without https://)
+#' @return Cleaned text string (main + about concatenated), or NA_character_ on failure
+extract_text_from_url <- function(url) {
+  domain <- gsub("^https?://", "", url)
+  content <- get_page_content(domain)
+  if (!content$success) return(NA_character_)
+
+  texts <- content$clean_text
+
+  # Try to find and fetch about page
+  links <- tryCatch(get_links_from_doc(content$doc), error = function(e) character(0))
+  about_link <- links[qg("about", links)][1]
+
+  if (!is.na(about_link)) {
+    if (!grepl("^https?://", about_link)) {
+      about_link <- paste0("https://", domain, if (!startsWith(about_link, "/")) "/" else "", about_link)
+    }
+    about_domain <- gsub("^https?://", "", about_link)
+    cat("Trying about page:", about_link, "\n")
+    about_content <- get_page_content(about_domain)
+    if (about_content$success) {
+      texts <- paste(texts, about_content$clean_text)
+    }
+  }
+
+  texts
+}
+
+#' Extract text from a vector/column of URLs
+#'
+#' @param urls Character vector of URLs
+#' @return Character vector of cleaned text (NA where fetch failed)
+extract_text_from_urls <- function(urls) {
+  map_chr(urls, extract_text_from_url)
+}
 
 

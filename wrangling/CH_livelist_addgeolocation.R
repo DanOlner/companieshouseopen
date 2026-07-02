@@ -13,7 +13,11 @@ pc <- read_csv('https://www.dropbox.com/scl/fi/iaa3vli7zxl7b93aekyyh/postcode_lo
 
 
 #Companies house live list
-ch <- readRDS('local/BasicCompanyDataAsOneFile-2025-03-01.rds')
+#Find whatever version has been downloaded and extract its date to use later
+ch_file <- list.files('local', pattern = '^BasicCompanyDataAsOneFile-\\d{4}-\\d{2}-\\d{2}\\.rds$', full.names = TRUE)
+ch_file <- sort(ch_file, decreasing = TRUE)[1] #use most recent if more than one present
+ch_date <- str_extract(ch_file, '\\d{4}-\\d{2}-\\d{2}')
+ch <- readRDS(ch_file)
 
 #As much as possible, get postcode fields into matching format
 #Most do already match, but a few more might get linked
@@ -45,5 +49,5 @@ ch.geo <- ch %>%
 #table(is.na(ch.geo$postcode))
 #table(is.na(ch.geo$ITL221NM))
 
-#Save as RDS
-saveRDS(ch.geo,'local/companieshouse_livelist_geocoded.rds')
+#Save as RDS, tagging with the download date from the live list
+saveRDS(ch.geo,paste0('local/companieshouse_livelist_geocoded-',ch_date,'.rds'))

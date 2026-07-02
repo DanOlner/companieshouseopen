@@ -38,10 +38,18 @@ for(zipname in allzips){
     #(Av of 3 to 6 mins per unzip?)
     x <- Sys.time()
     cat('Unzipping', zipname,'...\n')
-    unzip(zipname,exdir=gsub('.zip','',zipname))
+    unzip_result <- unzip(zipname,exdir=gsub('.zip','',zipname))
     print(Sys.time()-x)
-    
-    
+
+    #unzip() returns silently on a corrupt/truncated archive (extracts nothing),
+    #which later surfaces as a confusing str_split subscript error. Catch it here
+    #and skip this zip so the rest of the loop can continue.
+    if(length(unzip_result) == 0){
+      warning('unzip produced no files - archive likely corrupt/truncated, skipping: ', zipname)
+      next
+    }
+
+
     #Get company numbers from inside the unzipped folder - each filename has company number
     
     #Will need this later to delete

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>South Yorkshire Companies House firms</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%232b6cb0'/></svg>" />
+
+  <!-- Third-party libraries (no build step, loaded as globals) -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <h1>South Yorkshire Companies House firms</h1>
+
+    <div class="topgroup">
+      <span class="lbl">Size / colour by:</span>
+      <label><input type="radio" name="metric" value="count" checked /> Employee count</label>
+      <label><input type="radio" name="metric" value="pct" /> % change (YoY)</label>
+    </div>
+
+    <div class="topgroup" id="tools">
+      <span class="lbl">Map tool:</span>
+      <button class="tool" data-mode="pan">Pan</button>
+      <button class="tool" data-mode="zoom">Zoom</button>
+      <button class="tool" data-mode="select">▭ Box select</button>
+      <button class="tool" data-mode="lasso">◠ Lasso</button>
+      <button id="clearSelBtn" title="Clear the current selection">Clear selection</button>
+    </div>
+
+    <div class="topgroup counts">
+      <span>Shown: <strong id="countShown">–</strong> firms · <strong id="countEmp">–</strong> employees</span>
+      <span>Selected: <strong id="countSel">0</strong> firms</span>
+    </div>
+
+    <button id="exportBtn" title="Download the current selection (or the shown firms if nothing is selected) as CSV">⬇ Export CSV</button>
+  </header>
+
+  <div id="bodywrap">
+    <aside id="sidebar">
+      <section class="filterblock">
+        <h2>SIC sector</h2>
+        <label class="field">
+          <span>Level</span>
+          <select id="sicLevel">
+            <option value="section">Section</option>
+            <option value="d2">2-digit</option>
+            <option value="d3">3-digit</option>
+            <option value="d5">5-digit</option>
+          </select>
+        </label>
+        <input type="search" id="sicSearch" placeholder="Filter list…" />
+        <div class="checklist" id="sicList"></div>
+        <div class="blockfoot"><button class="linkbtn" id="sicClear">clear SIC selection</button></div>
+      </section>
+
+      <section class="filterblock">
+        <h2>Employee band</h2>
+        <div class="checklist checklist--wrap" id="bandList"></div>
+      </section>
+
+      <section class="filterblock">
+        <h2>Firm age (years)</h2>
+        <div id="ageSlider" class="slider"></div>
+        <div class="rangelabels"><span id="ageMinLbl">0</span><span id="ageMaxLbl">–</span></div>
+      </section>
+
+      <button id="resetFilters">Reset all filters</button>
+      <p class="note">% change is shown only for firms with 5+ employees last year.</p>
+    </aside>
+
+    <main id="main">
+      <div id="map"></div>
+      <div id="treemapPanel">
+        <div class="panel-head">
+          <span>Sectors treemap — click a tile to filter the map</span>
+          <span class="panel-head-right">
+            size by:
+            <label><input type="radio" name="tmMetric" value="count" checked /> firms</label>
+            <label><input type="radio" name="tmMetric" value="emp" /> employees</label>
+            <button id="tmToggle" class="linkbtn">hide</button>
+          </span>
+        </div>
+        <div id="treemap"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Floating firm detail popup (filled on click) -->
+  <div id="firmPopup" hidden>
+    <button id="firmPopupClose" aria-label="close">✕</button>
+    <div id="firmPopupBody"></div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading"><div class="spinner"></div><p id="loadingMsg">Loading firm data…</p></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -224,57 +224,74 @@ get_slope_and_se_safely <- function(data, ..., y, x) {
 #If zip location supplied, extract file directly from zip, to avoid having to unzip whole thing
 get_accounts_data <- function(filename, ziplocation = NULL){
 
-  if(is.null(ziplocation)){
-    doc <- xml2::read_xml(filename)
-  } else {
-    doc <- xml2::read_xml(unz(ziplocation, filename))
-  }
-  
-  # Dynamically extract all namespaces
-  ns <- xml_ns(doc)
-  
-  
-  
-  enddate <- xml_text(
-    xml_find_first(
-      doc,
-      "//ix:nonNumeric[contains(@name, 'EndDateForPeriodCoveredByReport')]",
-      # ns = c(ix = "http://www.xbrl.org/2013/inlineXBRL")
-      ns = ns
+  #Single-row NA placeholder returned on any failure.
+  #IMPORTANT: must keep the same names/length as a successful return so that
+  #bind_rows() yields exactly one row per file and the downstream positional
+  #bind_cols(companynumber, accountcode) stays aligned.
+  emptyrow <- list(Company = NA_character_, enddate = NA_character_, dormantstatus = NA_character_,
+                   Employees_thisyear = NA_real_, Employees_lastyear = NA_real_)
+
+  tryCatch({
+
+    #"HUGE" relaxes libxml2's hardcoded size limits (fixes "Huge input lookup"
+    #on large iXBRL files); keep NOBLANKS which is xml2's default.
+    if(is.null(ziplocation)){
+      doc <- xml2::read_xml(filename, options = c("NOBLANKS", "HUGE"))
+    } else {
+      doc <- xml2::read_xml(unz(ziplocation, filename), options = c("NOBLANKS", "HUGE"))
+    }
+
+    # Dynamically extract all namespaces
+    ns <- xml_ns(doc)
+
+
+
+    enddate <- xml_text(
+      xml_find_first(
+        doc,
+        "//ix:nonNumeric[contains(@name, 'EndDateForPeriodCoveredByReport')]",
+        # ns = c(ix = "http://www.xbrl.org/2013/inlineXBRL")
+        ns = ns
+      )
     )
-  )
-  
-  #//ix:nonNumeric[contains(@name, 'EntityCurrentLegalOrRegisteredName')] matches any <ix:nonNumeric> tag where the name attribute contains EntityCurrentLegalOrRegisteredName
-  company_name <- xml_text(
-    xml_find_first(
-      doc,
-      "//ix:nonNumeric[contains(@name, 'EntityCurrentLegalOrRegisteredName')]",
-      # ns = c(ix = "http://www.xbrl.org/2013/inlineXBRL")
-      ns = ns
+
+    #//ix:nonNumeric[contains(@name, 'EntityCurrentLegalOrRegisteredName')] matches any <ix:nonNumeric> tag where the name attribute contains EntityCurrentLegalOrRegisteredName
+    company_name <- xml_text(
+      xml_find_first(
+        doc,
+        "//ix:nonNumeric[contains(@name, 'EntityCurrentLegalOrRegisteredName')]",
+        # ns = c(ix = "http://www.xbrl.org/2013/inlineXBRL")
+        ns = ns
+      )
     )
-  )
-  
-  
-  #Is company dormant?
-  dormant <- xml_text(
-    xml_find_first(
-      doc,
-      "//ix:nonNumeric[contains(@name, 'EntityDormantTruefalse')]",
-      ns = ns
+
+
+    #Is company dormant?
+    dormant <- xml_text(
+      xml_find_first(
+        doc,
+        "//ix:nonNumeric[contains(@name, 'EntityDormantTruefalse')]",
+        ns = ns
+      )
     )
-  )
-  
-  
-  #Get any employee values (max two per account submitted - this and last year - and a lot with just one year)
-  employeevals <- xml_text(
-    xml_find_all(
-      doc,
-        "//ix:nonFraction[contains(@name, 'AverageNumberEmployeesDuringPeriod')]",
-      ns = ns
+
+
+    #Get any employee values (max two per account submitted - this and last year - and a lot with just one year)
+    employeevals <- xml_text(
+      xml_find_all(
+        doc,
+          "//ix:nonFraction[contains(@name, 'AverageNumberEmployeesDuringPeriod')]",
+        ns = ns
+      )
     )
-  )
-  
-  return(list(Company = company_name, enddate = enddate, dormantstatus = dormant, Employees_thisyear = as.numeric(employeevals[1]), Employees_lastyear = as.numeric(employeevals[2])))
+
+    list(Company = company_name, enddate = enddate, dormantstatus = dormant, Employees_thisyear = as.numeric(employeevals[1]), Employees_lastyear = as.numeric(employeevals[2]))
+
+  },
+  error = function(e){
+    warning('get_accounts_data failed for "', filename, '": ', conditionMessage(e))
+    emptyrow
+  })
 
 }
 

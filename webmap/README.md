@@ -1,0 +1,66 @@
+# South Yorkshire Companies House firm map
+
+A static, no-build web app (pure HTML/CSS/JS) that maps ~31.7k South Yorkshire
+Companies House firms. A browser-only successor to the [SYMCA_shiny](https://github.com/DanOlner/SYMCA_shiny)
+app — no R server needed.
+
+## Features
+
+- **Map** of every firm (Plotly `scattermapbox`, CartoDB Positron basemap), point
+  size + colour by **employee count** (sequential) or **% employee change YoY**
+  (diverging red→green, centred on 0). Toggle top-left.
+- **Rectangle** and **lasso** selection (top bar → Box select / Lasso). The live
+  "Selected" count updates as you drag.
+- **Filters** (left sidebar): SIC sector at any level (Section / 2-/3-/5-digit),
+  employee-count band, and firm age.
+- **Export CSV** of the current selection — or, if nothing is selected, the firms
+  currently shown. Keeps all original columns plus a computed `pct_change`.
+- **SIC treemap** (bottom panel): section → 2-digit → 5-digit, sized by firm count
+  or employees. **Click a tile to filter the map** to that sector.
+- Click any firm for a detail popup with a link to its Companies House page.
+
+## Run locally
+
+The app fetches a ~11.5 MB CSV, so it must be served over HTTP (not `file://`):
+
+```bash
+cd webmap
+python3 -m http.server 8000
+# then open http://localhost:8000
+```
+
+## Data
+
+`data/companieshouse_sy.csv` is a copy of
+`local/companieshouse_sy_uptoJune2026_withgeo.csv` (the repo's `local/` is
+gitignored, so the served copy lives here). To refresh, regenerate that CSV and
+copy it over the top — no other change needed.
+
+`% change` is derived in the browser as
+`(Employees_thisyear − Employees_lastyear) / Employees_lastyear × 100`, and is only
+shown for firms with **5+ employees last year** (mirrors the Shiny app, avoids
+explosive small-denominator values).
+
+## Publishing (GitHub Pages)
+
+Self-contained folder — publish via a `gh-pages` branch or relocate under `docs/`.
+No build step. Third-party libs (Plotly, PapaParse, noUiSlider) load from CDNs.
+
+## Possible next steps
+
+- Overlay the SY local-authority boundaries: convert
+  `SYMCA_shiny/data/mapdata/sy_localauthorityboundaries.shp` to GeoJSON and add it
+  as a `layout.mapbox.layers` line layer in `js/map.js`.
+- If the dataset grows much larger, swap PapaParse for DuckDB-WASM / Parquet.
+
+## File map
+
+| File | Role |
+|------|------|
+| `index.html` | Layout + CDN `<script>` tags |
+| `js/data.js` | CSV load, derive `pct`, index the SIC hierarchy |
+| `js/map.js` | Map trace, size/colour, drag-mode, selection + click events |
+| `js/filters.js` | Sidebar controls + the filtering predicate |
+| `js/treemap.js` | SIC treemap + click-to-filter |
+| `js/export.js` | Selection → CSV download |
+| `js/app.js` | Bootstrap + wiring |

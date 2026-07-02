@@ -1,0 +1,9 @@
+name: general
+description: General four-sector classifier covering the main priority sectors
+cross_list_positives: false
+
+sectors:
+  - health_tech
+  - clean_energy
+  - defence
+  - advanced_manufacturing

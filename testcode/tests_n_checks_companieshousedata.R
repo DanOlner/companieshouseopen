@@ -275,6 +275,31 @@ st_write(
 
 
 
+# CHECKING ON FIRM AGE AND SIZE----
+
+# Assuming we've got sy with 1565 firms of 10+ employees and with validated websites
+# Let's look at age...
+
+# Actually let's just export a version ordered by age
+
+# Check in testfit result for website keywords (not linked to firm age at the moment)
+
+# Let's add firm age and employees in...
+both = testfit.result %>%
+  left_join(sy %>% select(CompanyNumber, age_of_firm_years, Employees_thisyear), by = 'CompanyNumber')
+
+both %>% filter(qg('defence',site_text) | qg('defence', main_text) | qg('result', about_text)) %>% arrange(desc(age_of_firm_years)) %>% View
+
+
+# Yeah let's just save sy ordered by age of firm...
+write_csv(
+  sy %>% select(CompanyName,CompanyNumber,localauthority_name,incorporationdate_formatted,age_of_firm_years,website, SIC_2DIGIT_NAME, SIC_SECTION_NAME, Employees_thisyear, Employees_lastyear) %>% arrange(-age_of_firm_years) %>% st_set_geometry(NULL),
+  'local/southyorks_chfirms_withwebsites_orderedbyage.csv'
+  )
+
+
+
+
 
 
 

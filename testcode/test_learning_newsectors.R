@@ -808,10 +808,59 @@ testfit.result %>% select(CompanyName,website,site_text,setfit_best_sector) %>% 
 
 # Let's filter by some of those >0.5 combos
 testfit.result %>%
-  filter(setfit_clean_energy > 0.5 & setfit_advanced_manufacturing > 0.5) %>% 
-  # filter(setfit_health_tech > 0.5 & setfit_advanced_manufacturing > 0.5) %>% 
-  select(CompanyName,website,site_text,setfit_best_sector) %>% 
+  filter(setfit_clean_energy > 0.5 & setfit_health_tech > 0.5) %>%
+  # filter(setfit_clean_energy > 0.5 & setfit_advanced_manufacturing > 0.5) %>%
+  # filter(setfit_health_tech > 0.5 & setfit_advanced_manufacturing > 0.5) %>%
+  select(CompanyName,website,site_text,setfit_best_sector) %>%
   View
+
+# Check all cross-sectors more than 0.5 e.g. firms that are
+# >0.5 in both advanced manuf and clean tech
+# Do for each sector pairing 4x4
+sector_cols <- c("setfit_health_tech", "setfit_clean_energy", "setfit_defence", "setfit_advanced_manufacturing")
+
+# Create all unique pairs (not including self-pairs)
+sector_pairs <- combn(sector_cols, 2, simplify = FALSE)
+
+# Count firms where both sectors in each pair are > cutoff
+# Claude-code-written bit:
+cutoff = 0.5
+
+cross_sector_counts <- map_dfr(sector_pairs, function(pair) {
+  count <- testfit.result %>%
+    filter(.data[[pair[1]]] > cutoff & .data[[pair[2]]] > cutoff) %>%
+    nrow()
+
+  tibble(
+    sector1 = gsub("setfit_", "", pair[1]),
+    sector2 = gsub("setfit_", "", pair[2]),
+    both_above_0.5 = count
+  )
+})
+
+print(cross_sector_counts)
+
+# Also show as a matrix for easier reading
+cross_sector_matrix <- matrix(0, nrow = 4, ncol = 4)
+sector_names <- gsub("setfit_", "", sector_cols)
+rownames(cross_sector_matrix) <- sector_names
+colnames(cross_sector_matrix) <- sector_names
+
+for (i in 1:nrow(cross_sector_counts)) {
+  row_idx <- which(sector_names == cross_sector_counts$sector1[i])
+  col_idx <- which(sector_names == cross_sector_counts$sector2[i])
+  cross_sector_matrix[row_idx, col_idx] <- cross_sector_counts$both_above_0.5[i]
+  cross_sector_matrix[col_idx, row_idx] <- cross_sector_counts$both_above_0.5[i]  # mirror
+}
+
+# Add diagonal: count of firms > 0.5 in each sector alone
+for (i in 1:length(sector_cols)) {
+  cross_sector_matrix[i, i] <- testfit.result %>%
+    filter(.data[[sector_cols[i]]] > 0.5) %>%
+    nrow()
+}
+
+print(cross_sector_matrix)
 
 
 
@@ -1203,7 +1252,30 @@ map(sects, outputsetfitmap, firmcutoff = 0, employeescutoff = 25, scorecutoff = 
 
 
 
+
+
+
+
 # USING 0.5 CLASSIFIERS TO MAKE MAP----
+
+# Let's just have a quick looksee, point map...
+
+tmap_mode('view')
+
+tm_basemap("OpenStreetMap", alpha = 0.6) +
+  tm_shape(mask) +#add in masking layer for rest of basemap
+  tm_polygons(col = 'white', fill = 'white') +
+  tm_shape(sy_shp, is.main = TRUE) +
+  # tm_polygons(fill = '#a6baa8') +
+  # tm_polygons(fill = 'white', fill_alpha = 0.6) +
+  tm_shape(sy %>%
+             filter(
+               setfit_advanced_manufacturing > 0.5
+             )
+  ) +
+  tm_symbols(size = 1) +
+  tm_shape(sy_shp) +
+  tm_borders(col_alpha = 0.3)
 
 
 
@@ -1268,4 +1340,46 @@ sects = c(
 map(sects, outputsetfitmap_bivariate, firmcutoff = 0, employeescutoff = 25, scorecutoff = 0)
 
 
+
+
+
+# MANUAL URL TEXT EXTRACTION----
+
+urls <- c(
+  # Established firms
+  "https://www.bbraun.co.uk",
+  "https://www.swann-morton.com",
+  "https://www.jri-ltd.com",
+  "https://lablogic.com",
+  "https://uk.medical.canon",
+  "https://stepsrehabilitation.co.uk",
+  "https://www.sheffieldpm.co.uk",
+  # Startups
+  "https://www.sleepcogni.com",        # preventative health + child health: handheld sleep device; active Innovate UK project with Sheffield Children's NHS on childhood insomnia
+  "https://excitinginstruments.com",
+  "https://blackfin.bio",
+  "https://www.unicornb.io",
+  "https://www.rinri-therapeutics.com",
+  # Institutes / support orgs
+  "https://sheffield.ac.uk/insigneo",
+  "https://sheffield.ac.uk/data-connect",
+  "https://sheffield.ac.uk/sydhh"      # preventative health: uses wearables/smartphone data + NHS data for early disease detection
+)
+
+url_texts <- extract_text_from_urls(urls)
+
+# View as tibble
+rez = tibble(url = urls, text = url_texts)
+
+# Check which firms mention preventative/child health keywords
+preventative_terms <- c("prevent", "early detection", "screening", "wearable", "monitor", "wellness", "lifestyle")
+child_terms <- c("child", "paediatric", "pediatric", "young people", "infant", "adolescent")
+
+rez %>%
+  mutate(
+    preventative = str_detect(text, paste(preventative_terms, collapse = "|")),
+    child_health  = str_detect(text, paste(child_terms, collapse = "|"))
+  ) %>%
+  filter(preventative | child_health) %>%
+  select(url, preventative, child_health)
 

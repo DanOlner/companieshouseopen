@@ -1,0 +1,73 @@
+name: health_tech
+description: Companies developing technology for healthcare - medical devices, digital health, biotech, health data
+
+positive:
+  # Medical devices
+  - "Medical device company developing cardiac monitoring systems and wearable health sensors"
+  - "We manufacture diagnostic imaging equipment for hospitals and clinics worldwide"
+  - "Surgical robotics company creating minimally invasive surgical systems"
+  - "Point of care diagnostics manufacturer specialising in rapid testing devices"
+  - "Implantable medical devices for cardiac rhythm management"
+
+  # Digital health / health software
+  - "AI-powered diagnostic platform helping radiologists detect cancer earlier"
+  - "Electronic health records software connecting GPs, hospitals and pharmacies"
+  - "Telemedicine platform enabling remote consultations with specialists"
+  - "Clinical decision support software using machine learning"
+  - "Mobile health app for diabetes management and glucose tracking"
+
+  # Biotech / pharma tech
+  - "Biotechnology company researching mRNA vaccine technologies"
+  - "Gene therapy company developing treatments for rare diseases"
+  - "Pharmaceutical technology firm specialising in drug delivery systems"
+  - "Bioinformatics company providing genomic analysis services"
+  - "Clinical trials software platform for pharmaceutical companies"
+
+  # Health data / analytics
+  - "Health data analytics platform helping NHS trusts improve patient outcomes"
+  - "Population health management software for integrated care systems"
+  - "Medical imaging AI company specialising in pathology analysis"
+
+negative:
+  # AI/ML/tech that is NOT health-related (key confusers!)
+  - "AI-powered marketing analytics platform for e-commerce businesses"
+  - "Machine learning solutions for retail inventory optimisation"
+  - "Data science consultancy helping businesses leverage their data"
+  - "Artificial intelligence for advertising and customer targeting"
+  - "Predictive analytics platform for financial services"
+  - "Digital transformation consultancy helping businesses grow online"
+  - "We build chatbots and AI assistants for customer service"
+  - "Computer vision solutions for manufacturing quality control"
+
+  # Health services that are NOT tech (care providers)
+  - "Residential care home providing 24-hour nursing for elderly residents"
+  - "GP surgery serving 8000 registered patients in South Yorkshire"
+  - "Dental practice offering NHS and private dentistry"
+  - "Physiotherapy and sports injury rehabilitation clinic"
+  - "Domiciliary care agency providing home care services"
+  - "Nursing home with specialist dementia care unit"
+  - "Mental health counselling and psychotherapy services"
+  - "Private hospital offering elective surgery and consultations"
+
+  # General other businesses
+  - "Accountancy firm providing tax and audit services"
+  - "Law firm specialising in commercial property and conveyancing"
+  - "Recruitment agency for engineering and manufacturing sectors"
+  - "Web design agency creating websites for small businesses"
+  - "Commercial cleaning services for offices and industrial premises"
+  - "Construction company specialising in residential developments"
+
+  # Curated examples from real web text
+  # Primary Care Doncaster
+  - |
+    We work behind the scenes with local GP practices to provide additional essential care.
+    We support resilience and quality improvement within general practice and provide corporate support
+    and infrastructure for PCNs and practices.
+  # Veedol lubricants
+  - |
+    Manufacturer of high-performance engine oils, gear oils, transmission fluids,
+    coolants, brake fluids and industrial lubricants for automotive and industrial applications.
+  # Visiting Angels
+  - |
+    Home care provider delivering professional and compassionate care services,
+    supporting individuals with daily living activities and personal care in their own homes.

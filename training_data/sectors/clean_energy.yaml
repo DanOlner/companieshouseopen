@@ -1,0 +1,79 @@
+name: clean_energy
+description: Companies developing or deploying renewable energy and clean technology - solar, wind, heat pumps, hydrogen, storage
+
+positive:
+  # Solar
+  - "Solar panel installation company serving domestic and commercial customers"
+  - "We design and install photovoltaic systems for homes and businesses across Yorkshire"
+  - "Solar farm developer and operator with 50MW of installed capacity"
+  - "Rooftop solar specialists providing renewable energy solutions"
+
+  # Wind
+  - "Wind turbine manufacturer supplying components to offshore wind farms"
+  - "Onshore wind farm developer and operator"
+  - "Wind turbine maintenance and servicing company"
+  - "Blade inspection and repair services for wind energy sector"
+
+  # Heat pumps / energy efficiency
+  - "Air source heat pump installation specialists for residential properties"
+  - "Ground source heat pump systems for commercial buildings"
+  - "Energy efficiency consultancy helping businesses reduce carbon footprint"
+  - "Retrofit insulation and energy efficiency upgrades for housing"
+
+  # Hydrogen / batteries / storage
+  - "Green hydrogen production facility using renewable electricity"
+  - "Battery energy storage systems for grid balancing"
+  - "EV charging infrastructure installer and operator"
+  - "Electric vehicle charge point network across South Yorkshire"
+
+  # General clean energy
+  - "Renewable energy developer focused on solar and wind projects"
+  - "Clean energy consultancy helping organisations achieve net zero"
+  - "Carbon management and sustainability consultancy"
+  - "District heating network operator using waste heat recovery"
+
+  # Curated examples from real web text
+  - |
+    Power solutions to enable your energy transition. Manage your commercial power more efficiently
+    through our Voltage Optimisation, Low-Loss Transformers, and Battery Energy Storage Systems.
+  - |
+    We design and manufacture commercial energy solutions including voltage optimisation,
+    battery energy storage systems, and energy-efficient transformers to support decarbonisation
+    and the electrification of industry.
+
+negative:
+  # Oil & gas / fossil fuels (key confusers!)
+  - "Gas boiler installation and servicing company"
+  - "Oil and gas engineering services"
+  - "Petroleum distribution and fuel delivery"
+  - "Natural gas pipeline contractor"
+  - "Heating oil supplier for domestic customers"
+  - "Gas engineer providing boiler repairs and servicing"
+
+  # General energy that ISN'T clean
+  - "Diesel generator hire and sales"
+  - "Backup power systems using diesel generators"
+  - "Fuel station operator with petrol and diesel"
+
+  # Construction / trades (might mention 'energy')
+  - "General building contractor and property developer"
+  - "Electrical contractor for commercial and industrial premises"
+  - "HVAC installation and maintenance services"
+  - "Plumbing and heating contractor"
+
+  # Environmental but not energy
+  - "Waste management and recycling company"
+  - "Environmental consultancy for planning applications"
+  - "Asbestos removal and environmental remediation"
+
+  # General other
+  - "Accountancy firm providing business advisory services"
+  - "Recruitment agency for engineering sector"
+  - "IT managed services provider"
+  - "Commercial property management company"
+
+  # Curated examples from real web text
+  # Veedol lubricants
+  - |
+    Manufacturer of high-performance engine oils, gear oils, transmission fluids,
+    coolants, brake fluids and industrial lubricants for automotive and industrial applications.

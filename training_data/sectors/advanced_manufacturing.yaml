@@ -1,0 +1,81 @@
+name: advanced_manufacturing
+description: High-value manufacturing using advanced processes - precision CNC, additive manufacturing, composites, industrial automation, Industry 4.0
+
+positive:
+  # Precision engineering / CNC
+  - "Precision CNC machining company specialising in aerospace components"
+  - "5-axis CNC machining centre for complex geometries"
+  - "High precision engineering for medical device and aerospace sectors"
+  - "Precision turned parts manufacturer with Swiss-type lathes"
+
+  # Additive manufacturing / 3D printing
+  - "Metal 3D printing service bureau for aerospace and medical"
+  - "Additive manufacturing facility with SLM and EBM capabilities"
+  - "Rapid prototyping and low volume production using 3D printing"
+  - "Industrial 3D printing for functional end-use parts"
+
+  # Composites / advanced materials
+  - "Carbon fibre composite manufacturer for motorsport and aerospace"
+  - "Advanced composite materials for lightweight structures"
+  - "Specialist coatings and surface treatments for aerospace"
+  - "Superalloy and titanium machining specialists"
+
+  # Automation / robotics
+  - "Industrial automation and robotic systems integrator"
+  - "Collaborative robot solutions for manufacturing"
+  - "Automated assembly systems for high volume production"
+  - "Machine vision and quality inspection systems"
+
+  # Industry 4.0 / smart manufacturing
+  - "Smart factory solutions with IoT and data analytics"
+  - "Manufacturing execution systems and digital twin technology"
+  - "Predictive maintenance solutions using machine learning"
+  - "Digital manufacturing consultancy and Industry 4.0 implementation"
+
+  # High value manufacturing
+  - "Precision surface engineering and electroplating for aerospace"
+  - "Laser cutting and profiling service for precision components"
+  - "Investment casting foundry for aerospace and energy sectors"
+  - "Cleanroom manufacturing for semiconductor and medical devices"
+
+negative:
+  # Basic manufacturing (key confusers!)
+  - "General steel fabrication and welding"
+  - "Sheet metal work and press forming"
+  - "Traditional foundry producing iron castings"
+  - "Manual machine shop with conventional lathes and mills"
+
+  # Construction / trades
+  - "Structural steelwork for construction"
+  - "Metal fabrication for building industry"
+  - "Industrial maintenance and plant repair"
+  - "Welding and fabrication contractor"
+
+  # Automotive aftermarket (not advanced)
+  - "Car body repair and vehicle restoration"
+  - "Exhaust and tyre fitting centre"
+  - "Vehicle MOT and servicing garage"
+
+  # Food / consumer manufacturing
+  - "Food processing and packaging company"
+  - "Bakery and confectionery manufacturer"
+  - "Plastic injection moulding for consumer products"
+  - "Packaging manufacturer for food industry"
+
+  # General other
+  - "IT services and software development"
+  - "Marketing agency and creative services"
+  - "Recruitment consultancy for manufacturing sector"
+  - "Health and safety training provider"
+  - "Accountancy and business advisory firm"
+  - "Commercial cleaning services"
+
+  # Curated examples from real web text
+  # Ancient Wisdom Marketing
+  - |
+    Data-first digital marketing agency using advanced analytics,
+    machine learning, and marketing automation to deliver SEO, social media,
+    and programmatic advertising campaigns.
+  - |
+    Marketing should be as rigorous and data-driven as software engineering.
+    We bridge the gap between creative strategy and technical execution.

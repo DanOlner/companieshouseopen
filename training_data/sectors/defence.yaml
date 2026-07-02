@@ -1,0 +1,63 @@
+name: defence
+description: Companies supplying goods or services to military and defence sector - manufacturing, electronics, aerospace defence, naval
+
+positive:
+  # Defence manufacturing
+  - "Defence contractor manufacturing armoured vehicle components"
+  - "Munitions manufacturer supplying the Ministry of Defence"
+  - "Military communications systems and secure radio equipment"
+  - "Ballistic protection systems for military and law enforcement"
+
+  # Aerospace defence
+  - "Aerospace defence company supplying aircraft components to military programmes"
+  - "Unmanned aerial vehicle manufacturer for defence applications"
+  - "Military helicopter maintenance and overhaul services"
+  - "Fighter aircraft component supplier with MOD contracts"
+
+  # Defence electronics / systems
+  - "Radar systems manufacturer for naval and air defence"
+  - "Electronic warfare systems and countermeasures"
+  - "Military simulation and training systems"
+  - "Secure communications and encryption technology for defence"
+
+  # Defence services / supply chain
+  - "Tier one supplier to major defence prime contractors"
+  - "MOD approved supplier of precision machined components"
+  - "Defence logistics and supply chain management"
+  - "Security cleared engineering services for defence sector"
+
+  # Naval / maritime defence
+  - "Naval vessel systems integration and support"
+  - "Submarine component manufacturer"
+  - "Maritime surveillance systems"
+  - "Torpedo and underwater weapons systems"
+
+negative:
+  # Security that ISN'T defence (key confusers!)
+  - "Commercial security services and manned guarding"
+  - "CCTV installation and alarm systems for businesses"
+  - "Cybersecurity consultancy for commercial organisations"
+  - "Private security company providing door staff and event security"
+
+  # Aerospace that ISN'T defence
+  - "Commercial aircraft maintenance and repair"
+  - "Aviation training school for private pilots"
+  - "Aircraft charter and private jet hire"
+  - "Airport ground handling services"
+
+  # Engineering that ISN'T defence
+  - "Precision engineering for automotive sector"
+  - "Industrial machinery manufacturer"
+  - "Steel fabrication for construction industry"
+  - "General mechanical engineering services"
+
+  # Emergency services (might mention 'defence')
+  - "Fire and rescue equipment supplier"
+  - "Ambulance services and patient transport"
+  - "First aid training provider"
+
+  # General other
+  - "Law firm specialising in commercial contracts"
+  - "Management consultancy firm"
+  - "Recruitment agency for technical roles"
+  - "Web development and digital marketing agency"

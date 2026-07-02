@@ -15,7 +15,8 @@ source('functions.R')
 #The joined CH live list, geocoded with LA and ITL2 lookup, and account extracts added
 # ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_July2025.rds')
 # ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Oct2025.rds')
-ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
+# ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
+ch <- readRDS('local/accountextracts_n_livelist_geocoded_combined-2026-06-01.rds')
 #2.48gb in version as of March 2025
 #pryr::object_size(ch)
 
@@ -85,9 +86,9 @@ toobig %>% filter(qg('south y',ITL221NM)) %>% View
 ch = ch %>% filter(!paste0(CompanyNumber,accountcode) %in% paste0(toobig$CompanyNumber,toobig$accountcode))
 
 #Save that version...
-saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
+saveRDS(ch,'local/PROCESSED_accountextracts_n_livelist_geocoded_combined_-2026-06-01.rds')
 
-ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
+ch <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_-2026-06-01.rds')
 
 
 
@@ -688,11 +689,321 @@ ch %>% filter(qg('echo fire and medical', CompanyName)) %>% select(CompanyName,R
 
 
 
+# ============================================================================
+# NORTH 1km-HEX LIVE MAPS: MODAL SECTOR BY EMPLOYEE COUNT
+# ============================================================================
+# Two self-contained versions of the "north" hexmap (cf. the block from
+# line ~223). Both bin firms into 1km hexes and colour each hex by the sector
+# with the most employees (modal sector), then draw a live (tmap view) map.
+#   v1: bins by the existing SIC_SECTION_NAME (same as the source block).
+#   v2: bins the 5-digit SICs into the 8 Industrial-Strategy growth sectors
+#       (IS-8) instead, using is8_sic_binning.R.
+#
+# PREREQS (run once near the top of the session, after the libraries):
+#   ch   <- readRDS('local/PROCESSED_accountextracts_n_livelist_geocoded_combined_Dec2025.rds')
+#       # the PROCESSED rds already has SIC_5DIGIT_CODE / SIC_SECTION_NAME and
+#       # the obviously-wrong (too-big) employee firms removed - see line ~88.
+#   itl2 <- st_read('../RegionalEcons_web/data/ITL_geographies/International_Territorial_Level_2_January_2021_UK_BFE_V2_2022_-4735199360818908762/ITL2_JAN_2021_UK_BFE_V2.shp') %>%
+#             st_simplify(preserveTopology = T, dTolerance = 100)   # for the borders (line ~189)
+# v2 additionally needs the IS8 column (see its own prereq block below).
+# ----------------------------------------------------------------------------
+
+
+# --- v1: MODAL SIC SECTION, THE NORTH ---------------------------------------
+
+place <- ch %>% filter(qg('yorkshire|manchester|lancas|mersey', ITL221NM))
+
+#1km hexes over the bounding box of `place`, with an id to group by
+sq <- st_make_grid(place, cellsize = 1000, square = F) %>%
+  st_sf() %>%
+  mutate(id = 1:nrow(.))
+
+#Assign each firm (point) to its hex
+overlay <- st_intersection(place, sq)
+
+#Sum employees per SIC section in each hex; keep only hexes with >= 10 employees total
+section.summary <- overlay %>%
+  st_set_geometry(NULL) %>%
+  filter(Employees_thisyear > 0) %>%                              #firms with employees in latest year
+  filter(!qg('households|extraterr', SIC_SECTION_NAME)) %>%       #drop these sections from the sum
+  filter(!is.na(SIC_SECTION_NAME)) %>%
+  group_by(id, SIC_SECTION_NAME) %>%
+  summarise(totalemployees = sum(Employees_thisyear), .groups = 'drop') %>%
+  group_by(id) %>%
+  filter(sum(totalemployees) >= 10)
+
+#Modal section per hex = section with the most employees
+modal.sector <- section.summary %>%
+  group_by(id) %>%
+  summarise(
+    modal_sector  = SIC_SECTION_NAME[which.max(totalemployees)],
+    hex_employees = sum(totalemployees),
+    .groups = 'drop'
+  )
+
+#Right join back onto the hexes (drops empty hexes)
+sq.modal <- sq %>%
+  right_join(modal.sector, by = 'id') %>%
+  mutate(hoverdisplay = paste0(modal_sector, ' (', hex_employees, ' employees in hex)'))
+
+#Distinct-ish pastel colours for however many sections appear (same recipe as source)
+n <- length(unique(sq.modal$modal_sector))
+set.seed(101)
+qual_col_pals <- brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector <- unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+tmap_mode('view')
+
+tm_shape(sq.modal) +
+  tm_polygons('modal_sector',
+              fill.scale = tm_scale_categorical(values = col_vector),
+              id = 'hoverdisplay', col_alpha = 0, fill_alpha = 0.65) +
+tm_shape(itl2 %>% filter(ITL221NM %in% place$ITL221NM)) +
+  tm_borders(col = 'black')
 
 
 
 
+# --- v2: MODAL IS-8 GROWTH SECTOR, THE NORTH --------------------------------
+# Same idea as v1, but firms are binned into the 8 Industrial-Strategy growth
+# sectors (IS-8) instead of SIC sections. Firms whose 5-digit SIC is not in any
+# IS-8 sector are NA and dropped, so each coloured hex shows which growth sector
+# employs the most people *among IS-8 firms there* (most hexes have far fewer
+# qualifying firms than v1 - expect a sparser map).
 
+#PREREQ for v2: add the IS8 column (run once)
+source('is8_sic_binning.R')
+ch <- ch %>% mutate(IS8 = bin_sic_to_is8(SIC_5DIGIT_CODE))
+
+#Sanity check the split (NA = firm not in any IS-8 sector)
+# ch %>% st_set_geometry(NULL) %>% count(IS8, sort = TRUE)
+
+place <- ch %>% filter(qg('yorkshire|manchester|lancas|mersey', ITL221NM))
+
+#1km hexes over the bounding box of `place`, with an id to group by
+sq <- st_make_grid(place, cellsize = 1000, square = F) %>%
+  st_sf() %>%
+  mutate(id = 1:nrow(.))
+
+#Assign each firm (point) to its hex
+overlay <- st_intersection(place, sq)
+
+#Sum employees per IS-8 sector in each hex; keep only hexes with >= 10 IS-8 employees
+is8.summary <- overlay %>%
+  st_set_geometry(NULL) %>%
+  filter(Employees_thisyear > 0) %>%        #firms with employees in latest year
+  filter(!is.na(IS8)) %>%                    #drop firms not in any IS-8 growth sector
+  group_by(id, IS8) %>%
+  summarise(totalemployees = sum(Employees_thisyear), .groups = 'drop') %>%
+  group_by(id) %>%
+  filter(sum(totalemployees) >= 10)
+
+#Modal IS-8 per hex = growth sector with the most employees
+modal.is8 <- is8.summary %>%
+  group_by(id) %>%
+  summarise(
+    modal_is8     = IS8[which.max(totalemployees)],
+    is8_employees = sum(totalemployees),
+    .groups = 'drop'
+  )
+
+#Right join back onto the hexes (drops empty hexes)
+sq.modal <- sq %>%
+  right_join(modal.is8, by = 'id') %>%
+  mutate(hoverdisplay = paste0(modal_is8, ' (', is8_employees, ' IS-8 employees in hex)'))
+
+#Stable named colours so each IS-8 sector keeps the same colour across runs/places
+#(Clean Energy has no SICs so never appears; Dark2 gives 8 distinct hues.)
+is8_cols <- c(
+  "Advanced manufacturing"           = "#1b9e77",
+  "Foundational industries"          = "#66a61e",
+  "Creative industries"              = "#d95f02",
+  "Digital & technologies"           = "#7570b3",
+  "Financial services"               = "#e7298a",
+  "Life sciences"                    = "#e6ab02",
+  "Professional & business services" = "#a6761d",
+  "Defence"                          = "#666666"
+)
+
+tmap_mode('view')
+
+tm_shape(sq.modal) +
+  tm_polygons('modal_is8',
+              fill.scale = tm_scale_categorical(values = is8_cols),
+              id = 'hoverdisplay', col_alpha = 0, fill_alpha = 0.65) +
+tm_shape(itl2 %>% filter(ITL221NM %in% place$ITL221NM)) +
+  tm_borders(col = 'black')
+
+
+
+
+# --- v3: % OF EMPLOYEES IN EACH HEX THAT ARE IS-8 vs NON-IS-8 ---------------
+# For each hex: IS-8 employees / all employees * 100. NA in the IS8 column is
+# the non-IS-8 bucket (5-digit SIC not in any growth sector, plus any firm with
+# a missing/unmatched SIC), so IS-8 + non-IS-8 = total employment in the hex.
+# Needs the IS8 column from v2 above (source('is8_sic_binning.R') etc.).
+
+place <- ch %>% filter(qg('yorkshire', ITL221NM))
+
+#1km hexes over the bounding box of `place`, with an id to group by
+sq <- st_make_grid(place, cellsize = 2000, square = F) %>%
+  st_sf() %>%
+  mutate(id = 1:nrow(.))
+
+#Assign each firm (point) to its hex
+overlay <- st_intersection(place, sq)
+
+#Per hex: split this-year employees into IS-8 (IS8 not NA) and non-IS-8 (IS8 NA)
+is8.share <- overlay %>%
+  st_set_geometry(NULL) %>%
+  # filter(!qg('foundational', IS8)) %>% #test without foundational
+  filter(Employees_thisyear > 0) %>%                      #firms with employees in latest year
+  # filter(!qg('households|extraterr', SIC_SECTION_NAME)) %>% #optional: match the modal maps' denominator
+  group_by(id) %>%
+  summarise(
+    is8_employees    = sum(Employees_thisyear[!is.na(IS8)]),
+    nonis8_employees = sum(Employees_thisyear[is.na(IS8)]),
+    total_employees  = sum(Employees_thisyear),
+    pct_is8          = is8_employees / total_employees * 100,
+    firmcount        = n(),
+    .groups = 'drop'
+  ) %>%
+  filter(total_employees >= 25)   #raise (>= 50 / 100) to de-noise small-denominator hexes
+
+#Right join back onto the hexes (drops empty hexes)
+sq.map <- sq %>%
+  right_join(is8.share, by = 'id') %>%
+  mutate(
+    hoverdisplay = paste0(round(pct_is8, 1), '% IS-8 (',
+                          is8_employees, ' of ', total_employees, ' employees, ',
+                          firmcount, ' firms)')
+  )
+
+tmap_mode('view')
+
+tm_shape(sq.map) +
+  tm_polygons('pct_is8',
+              id = 'hoverdisplay', col_alpha = 0, fill_alpha = 0.7,
+              fill.scale = tm_scale_intervals(style = 'fisher', n = 4, values = "yl_gn_bu")) +
+              # fill.scale = tm_scale_intervals(style = 'pretty', n = 4, values = "yl_gn_bu")) +
+tm_shape(itl2 %>% filter(ITL221NM %in% place$ITL221NM)) +
+  tm_borders(col = 'black')
+
+
+
+
+# SOUTH YORKSHIRE SPECIFICS----
+
+# Filter out firms with no employees this year also
+sy = ch %>% filter(ITL221NM == 'South Yorkshire', Employees_thisyear >= 1)
+
+# Write a version of that, with coords converted to lat/lon (WGS84) and lat/lon
+# added as separate columns so it works with leaflet / a webpage
+sy_latlon <- sy %>%
+  st_transform(4326) %>%                 #BNG (EPSG:27700, metres) -> lat/lon (WGS84)
+  mutate(
+    lon = st_coordinates(.)[,1],
+    lat = st_coordinates(.)[,2]
+  ) %>%
+  st_set_geometry(NULL) %>%                    #drop geometry so it writes cleanly to CSV
+  mutate(
+    sizecategory = case_when(
+      Employees_thisyear == 1 ~ "1",
+      between(Employees_thisyear,2,4) ~ "2-4",
+      between(Employees_thisyear,5,9) ~ "5-9",
+      between(Employees_thisyear,10,20) ~ "10-20",
+      between(Employees_thisyear,21,50) ~ "21-50",
+      between(Employees_thisyear,51,100) ~ "51-100",
+      between(Employees_thisyear,101,999999) ~ "101+"
+    ),
+    sizecategory = factor(sizecategory, levels = c('1','2-4','5-9','10-20','21-50','51-100','101+')))
+
+write_csv(sy_latlon %>% select(CompanyName,CompanyNumber,postcode,localauthority_name,accountcode,Employees_thisyear,Employees_lastyear,SIC_5DIGIT_CODE:sizecategory,lon,lat),
+          'local/companieshouse_sy_uptoJune2026_withgeo.csv'
+          )
+
+
+# Taken from test_learning_new_sectors.R
+# Breaking down size of firms
+#Code nabbed from bradford cluster qmd in regecon project
+firmcount <- sy %>% st_set_geometry(NULL) %>% filter(Employees_thisyear > 0)
+
+firmcount <- firmcount %>% 
+  mutate(
+    sizecategory = case_when(
+      Employees_thisyear == 1 ~ "1",
+      between(Employees_thisyear,2,4) ~ "2-4",
+      between(Employees_thisyear,5,9) ~ "5-9",
+      between(Employees_thisyear,10,20) ~ "10-20",
+      between(Employees_thisyear,21,50) ~ "21-50",
+      between(Employees_thisyear,51,999999) ~ "51+"
+    ),
+    sizecategory = factor(sizecategory, levels = c('1','2-4','5-9','10-20','21-50','51+'))
+  )
+
+firmcount <- firmcount %>% 
+  mutate(
+    sizecategory = case_when(
+      Employees_thisyear == 1 ~ "1",
+      between(Employees_thisyear,2,4) ~ "2-4",
+      between(Employees_thisyear,5,9) ~ "5-9",
+      between(Employees_thisyear,10,20) ~ "10-20",
+      between(Employees_thisyear,21,50) ~ "21-50",
+      between(Employees_thisyear,51,100) ~ "51-100",
+      between(Employees_thisyear,101,999999) ~ "101+"
+    ),
+    sizecategory = factor(sizecategory, levels = c('1','2-4','5-9','10-20','21-50','51-100','101+'))
+  )
+
+table(firmcount$sizecategory)
+
+#table from that to plot
+firmtable <- tibble(
+  `Firm size` = levels(firmcount$sizecategory),
+  `Count` = table(firmcount$sizecategory),
+  `Percent of firms` = paste0(round(table(firmcount$sizecategory) %>% prop.table() * 100,1),"%")
+)
+
+# Add in employee count and percent
+employees = firmcount %>% 
+  group_by(sizecategory) %>%
+  summarise(
+    totalemployees = sum(Employees_thisyear)
+  ) %>% 
+  mutate(
+    employeepercent = paste0(round((totalemployees/sum(totalemployees))*100,1),"%")
+  )
+
+
+firmtable = bind_cols(firmtable,employees %>% select(-sizecategory))
+
+firmtable
+
+# Save for online table
+# saveRDS(firmtable,'local/sy_firmtable.rds')
+
+knitr::kable(firmtable, escape = FALSE, caption = "Table: Companies House firm stats, data for last year up to June 2026")
+
+
+# Same table as a nicely-formatted image via gt (needs: install.packages(c("gt","webshot2")))
+library(gt)
+
+firmtable_gt <- firmtable %>%
+  gt() %>%
+  tab_header(title = "Companies House firms in SY, data for last year up to June 2026") %>%
+  cols_align(align = "right", columns = c(`Count`, `Percent of firms`, totalemployees, employeepercent))
+
+firmtable_gt   #preview in the Viewer
+
+#Save as an image (extension picks the format: .png / .pdf / .html)
+gtsave(firmtable_gt, 'local/sy_firmtable.png')
+
+
+# Save a version of the file with fewer columns...
+write_csv(
+  firmcount %>% select(CompanyName,CompanyNumber,postcode,localauthority_name,accountcode,Employees_thisyear,Employees_lastyear,SIC_5DIGIT_CODE:sizecategory),
+  'local/companieshouse_southyorkshirefirms_June2025to2026.csv'
+)
 
 
 

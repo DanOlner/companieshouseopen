@@ -5,7 +5,16 @@ source('functions.R')
 # GET COMPANIES HOUSE LIVE LIST----
 
 #current companies live list with geolocation / local authorities added
-ch <- readRDS('local/companieshouse_livelist_geocoded.rds') 
+#Find geocoded live list files, keeping the date in the filename (format YYYY-MM-DD)
+livelist.files <- list.files('local', pattern = 'companieshouse_livelist_geocoded-\\d{4}-\\d{2}-\\d{2}\\.rds$', full.names = T)
+
+#Use the most recent date if there are several (or just the one that's there)
+livelist.dates <- str_extract(basename(livelist.files), '\\d{4}-\\d{2}-\\d{2}')
+most.recent <- which.max(as.Date(livelist.dates))
+livelist.file <- livelist.files[most.recent]
+livelist.date <- livelist.dates[most.recent]  #keep the date from the filename
+
+ch <- readRDS(livelist.file)
 #pryr::object_size(ch) #3.4gb in memory
 
 #KEEP ONLT ACTIVE ACCOUNTS - 
@@ -129,7 +138,7 @@ table(!is.na(both$Employees_thisyear)) %>% prop.table() * 100
 #2.4gb
 # pryr::object_size(both)
 
-saveRDS(both, 'local/accountextracts_n_livelist_geocoded_combined.rds')
+saveRDS(both, paste0('local/accountextracts_n_livelist_geocoded_combined-', livelist.date, '.rds'))
 
 
 
