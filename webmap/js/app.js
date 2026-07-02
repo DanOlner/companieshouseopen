@@ -23,7 +23,7 @@ async function init() {
     map = new MapView({
       divId: 'map',
       meta: loaded.meta,
-      onSelect: (sel) => { state.selection = sel && sel.length ? sel : null; updateCounts(); },
+      onSelect: (sel) => { state.selection = sel && sel.length ? sel : state.plotted; updateCounts(); },
       onFirmClick: (row, ev) => showFirmPopup(row, ev),
     });
 
@@ -57,7 +57,7 @@ function refresh() {
   map.render(state.plotted, state.metric);
   treemap.render(base, state.tmMetric, filters.currentTreemapLevel()); // treemap reflects + zooms to the SIC selection
 
-  state.selection = null; // a re-filter invalidates any prior lasso/box selection
+  state.selection = state.plotted; // default: all filtered firms are "selected" (ready to export); box/lasso narrows further
   updateCounts();
   resizePlots();
 }
@@ -92,7 +92,7 @@ function wireControls() {
 
   $('clearSelBtn').addEventListener('click', () => {
     map.clearSelection();
-    state.selection = null;
+    state.selection = state.plotted; // reset to the full filtered set (the default)
     updateCounts();
   });
 

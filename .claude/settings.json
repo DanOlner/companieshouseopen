@@ -27,7 +27,10 @@
       "Bash(node test_proto2.mjs)",
       "Bash(pkill -f \"http.server 8002\")",
       "Bash(sed 's#127.0.0.1:8777#127.0.0.1:8001#' /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/pptr/verify.mjs)",
-      "Bash(node verify_regress.mjs)"
+      "Bash(node verify_regress.mjs)",
+      "Bash(cp /Users/danolner/Code/companieshouseopen/webmap/js/app.js /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/ds_app.mjs)",
+      "Bash(node --check /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/ds_app.mjs)",
+      "Bash(node verify_defaultsel.mjs)"
     ],
     "additionalDirectories": [
       "/tmp",
