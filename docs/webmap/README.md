@@ -20,6 +20,10 @@ app — no R server needed.
   to filter** the map + sidebar to that sector, **tick sidebar boxes** (one or many)
   to filter the treemap, and **zoom back out to "All South Yorkshire"** to clear the
   selection.
+- **Website filter + links**: filter to firms with a validated website; in the
+  popup, firms with a website have their name linked to it.
+- **LA boundaries**: the 4 South Yorkshire local authorities are outlined beneath
+  the points (`data/sy_localauthorities.geojson`, WGS84).
 - Click any firm for a detail popup with a link to its Companies House page.
 
 ## Run locally
@@ -27,9 +31,9 @@ app — no R server needed.
 The app fetches a ~11.5 MB CSV, so it must be served over HTTP (not `file://`):
 
 ```bash
-cd webmap
+cd docs            # or cd docs/webmap
 python3 -m http.server 8000
-# then open http://localhost:8000
+# then open http://localhost:8000/webmap/
 ```
 
 ## Data
@@ -46,14 +50,15 @@ explosive small-denominator values).
 
 ## Publishing (GitHub Pages)
 
-Self-contained folder — publish via a `gh-pages` branch or relocate under `docs/`.
-No build step. Third-party libs (Plotly, PapaParse, noUiSlider) load from CDNs.
+Lives under `docs/webmap/`, served by GitHub Pages (Pages source = `/docs`) at
+`…/webmap/`. Self-contained, no build step; third-party libs (Plotly, PapaParse,
+noUiSlider) load from CDNs.
+
+The LA boundary GeoJSON was made from `SYMCA_shiny/data/mapdata/sy_localauthorityboundaries`
+via R/sf: `st_transform(4326)` → `st_write(..., "GeoJSON")`.
 
 ## Possible next steps
 
-- Overlay the SY local-authority boundaries: convert
-  `SYMCA_shiny/data/mapdata/sy_localauthorityboundaries.shp` to GeoJSON and add it
-  as a `layout.mapbox.layers` line layer in `js/map.js`.
 - If the dataset grows much larger, swap PapaParse for DuckDB-WASM / Parquet.
 
 ## File map

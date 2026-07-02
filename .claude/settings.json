@@ -35,7 +35,12 @@
       "Bash(node --check /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/scale_map.mjs)",
       "Bash(node verify_scale.mjs)",
       "Bash(sed -i '' 's#{colorscale:\\\\[cs\\\\],reversescale:\\\\[rev\\\\]}#{'\\\\''marker.colorscale'\\\\'':[cs],'\\\\''marker.reversescale'\\\\'':[rev]}#' /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/pptr/scale_compare.mjs)",
-      "Bash(node scale_compare.mjs)"
+      "Bash(node scale_compare.mjs)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(pkill -f \"http.server 8001\")",
+      "Bash(python3 -m http.server 8001 --bind 127.0.0.1)",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
       "/tmp",

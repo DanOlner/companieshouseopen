@@ -931,10 +931,10 @@ sy_latlon = sy_latlon %>%
 
 # Check format being used for webpage, make sure all same
 # It's OK, extra columns with e.g. % change added on save on website
-# webversion = read_csv('webmap/data/companieshouse_sy.csv')
+# webversion = read_csv('docs/webmap/data/companieshouse_sy.csv')
 
 write_csv(sy_latlon %>% select(CompanyName,CompanyNumber,postcode,localauthority_name,accountcode,Employees_thisyear,Employees_lastyear,SIC_5DIGIT_CODE:sizecategory,lon,lat, website),
-          'webmap/data/companieshouse_sy.csv'
+          'docs/webmap/data/companieshouse_sy.csv'
           )
 
 

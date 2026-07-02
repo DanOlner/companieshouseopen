@@ -6,6 +6,7 @@ import { TreemapView } from './treemap.js';
 import { exportCsv } from './export.js';
 
 const DATA_URL = 'data/companieshouse_sy.csv';
+const BOUNDARIES_URL = 'data/sy_localauthorities.geojson';
 
 const $ = (id) => document.getElementById(id);
 const state = { metric: 'count', tmMetric: 'emp', selection: null, plotted: [] };
@@ -20,9 +21,13 @@ async function init() {
     rows = loaded.rows;
     headers = loaded.headers;
 
+    // LA boundary lines (optional overlay; map still works if the file is missing)
+    const boundaries = await fetch(BOUNDARIES_URL).then(r => (r.ok ? r.json() : null)).catch(() => null);
+
     map = new MapView({
       divId: 'map',
       meta: loaded.meta,
+      boundaries,
       onSelect: (sel) => { state.selection = sel && sel.length ? sel : state.plotted; updateCounts(); },
       onFirmClick: (row, ev) => showFirmPopup(row, ev),
     });

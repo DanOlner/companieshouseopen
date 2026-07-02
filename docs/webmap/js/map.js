@@ -41,7 +41,7 @@ function logTicks(lo, hi) {
 }
 
 export class MapView {
-  constructor({ divId, meta, onSelect, onFirmClick }) {
+  constructor({ divId, meta, onSelect, onFirmClick, boundaries }) {
     this.div = document.getElementById(divId);
     this.meta = meta;
     this.onSelect = onSelect;
@@ -49,6 +49,11 @@ export class MapView {
     this.mode = 'pan';
     this.currentRows = [];
     this._drawn = false;
+    // LA boundary lines drawn under the points (a stable reference so Plotly.react
+    // doesn't re-diff the GeoJSON on every filter). Empty if the file didn't load.
+    this._boundaryLayers = boundaries
+      ? [{ sourcetype: 'geojson', source: boundaries, type: 'line', color: '#3a3f4a', opacity: 0.85, line: { width: 1.5 } }]
+      : [];
   }
 
   _markerSize(rows, metric) {
@@ -123,6 +128,7 @@ export class MapView {
         style: 'carto-positron',
         center: { lon: -1.30, lat: 53.46 },
         zoom: 9.2,
+        layers: this._boundaryLayers, // LA borders, rendered beneath the marker trace
       },
       showlegend: false,
     };
