@@ -1,5 +1,5 @@
 // app.js — bootstrap and wiring for the SY Companies House firm map.
-import { loadData } from './data.js';
+import { loadData, firmWebsite } from './data.js';
 import { Filters } from './filters.js';
 import { MapView, fmtInt, fmtPct, fmtAge } from './map.js';
 import { TreemapView } from './treemap.js';
@@ -129,8 +129,18 @@ function showFirmPopup(row, mouseEv) {
   const body = $('firmPopupBody');
   body.replaceChildren();
 
+  const name = row.CompanyName || '(no name)';
+  const site = firmWebsite(row.website);
   const h = document.createElement('h3');
-  h.textContent = row.CompanyName || '(no name)';
+  if (site) {
+    const a = document.createElement('a');
+    a.href = site; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = name;
+    a.title = site;
+    h.append(a);
+  } else {
+    h.textContent = name;
+  }
   body.append(h);
 
   const kv = (label, value, cls) => {

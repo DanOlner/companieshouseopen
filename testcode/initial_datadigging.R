@@ -918,8 +918,23 @@ sy_latlon <- sy %>%
     ),
     sizecategory = factor(sizecategory, levels = c('1','2-4','5-9','10-20','21-50','51-100','101+')))
 
-write_csv(sy_latlon %>% select(CompanyName,CompanyNumber,postcode,localauthority_name,accountcode,Employees_thisyear,Employees_lastyear,SIC_5DIGIT_CODE:sizecategory,lon,lat),
-          'local/companieshouse_sy_uptoJune2026_withgeo.csv'
+# For SY firms we have websites for, add those websites in before saving
+sywebsites = read_csv('local/southyorks_chfirms_withwebsites_orderedbyage.csv')
+
+#Check matches... not bad
+table(sy_latlon$CompanyNumber %in% sywebsites$CompanyNumber)
+table(sywebsites$CompanyNumber %in% sy_latlon$CompanyNumber)
+
+# Add in
+sy_latlon = sy_latlon %>% 
+  left_join(sywebsites %>% select(CompanyNumber,website), by = 'CompanyNumber')
+
+# Check format being used for webpage, make sure all same
+# It's OK, extra columns with e.g. % change added on save on website
+# webversion = read_csv('webmap/data/companieshouse_sy.csv')
+
+write_csv(sy_latlon %>% select(CompanyName,CompanyNumber,postcode,localauthority_name,accountcode,Employees_thisyear,Employees_lastyear,SIC_5DIGIT_CODE:sizecategory,lon,lat, website),
+          'webmap/data/companieshouse_sy.csv'
           )
 
 
@@ -997,6 +1012,8 @@ firmtable_gt   #preview in the Viewer
 
 #Save as an image (extension picks the format: .png / .pdf / .html)
 gtsave(firmtable_gt, 'local/sy_firmtable.png')
+
+
 
 
 # Save a version of the file with fewer columns...

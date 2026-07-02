@@ -1,6 +1,6 @@
 // filters.js — sidebar controls + the filtering predicate.
 // Uses the global `noUiSlider` loaded via CDN in index.html.
-import { SIC_LEVELS, BAND_ORDER, sicLabel } from './data.js';
+import { SIC_LEVELS, BAND_ORDER, sicLabel, firmWebsite } from './data.js';
 
 export class Filters {
   constructor({ rows, sicIndex, meta, onChange }) {
@@ -14,6 +14,7 @@ export class Filters {
       sicSelected: new Set(),
       bands: new Set(),
       age: [0, meta.maxAge],
+      hasWebsite: false,
     };
 
     this.el = {
@@ -25,6 +26,8 @@ export class Filters {
       ageSlider: document.getElementById('ageSlider'),
       ageMinLbl: document.getElementById('ageMinLbl'),
       ageMaxLbl: document.getElementById('ageMaxLbl'),
+      hasWebsite: document.getElementById('hasWebsite'),
+      webCount: document.getElementById('webCount'),
       reset: document.getElementById('resetFilters'),
     };
 
@@ -32,7 +35,13 @@ export class Filters {
     this._buildBandList();
     this._buildAgeSlider();
     this._renderSicList();
+    this._showWebCount();
     this._wire();
+  }
+
+  _showWebCount() {
+    const n = this.rows.reduce((c, r) => c + (firmWebsite(r.website) ? 1 : 0), 0);
+    if (this.el.webCount) this.el.webCount.textContent = n.toLocaleString();
   }
 
   // ---- filtering ----
@@ -45,11 +54,13 @@ export class Filters {
     const useSic = includeSic && sicSelected.size > 0;
     const [amin, amax] = age;
     const useAge = amin > 0 || amax < this.meta.maxAge;
+    const useWeb = this.state.hasWebsite;
 
     const out = [];
     for (const r of rows) {
       if (useBands && !bands.has(r.sizecategory)) continue;
       if (useAge && (r.age == null || r.age < amin || r.age > amax)) continue;
+      if (useWeb && !firmWebsite(r.website)) continue;
       if (useSic) {
         const c = r[codeField] == null ? '' : String(r[codeField]).trim();
         if (!sicSelected.has(c)) continue;
@@ -97,9 +108,11 @@ export class Filters {
     this.state.sicSelected = new Set();
     this.state.bands = new Set();
     this.state.age = [0, this.meta.maxAge];
+    this.state.hasWebsite = false;
     this.el.sicSearch.value = '';
     this._renderSicList();
     this.el.bandList.querySelectorAll('input').forEach(i => { i.checked = false; });
+    this.el.hasWebsite.checked = false;
     this._ageSlider.set([0, this.meta.maxAge]);
     this.onChange();
   }
@@ -185,6 +198,10 @@ export class Filters {
     this.el.sicClear.addEventListener('click', () => {
       this.state.sicSelected = new Set();
       this._renderSicList();
+      this.onChange();
+    });
+    this.el.hasWebsite.addEventListener('change', () => {
+      this.state.hasWebsite = this.el.hasWebsite.checked;
       this.onChange();
     });
     this.el.reset.addEventListener('click', () => this.reset());

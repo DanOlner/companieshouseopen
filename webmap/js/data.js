@@ -33,6 +33,14 @@ export function sicLabel(levelKey, code, name) {
   return name || code;
 }
 
+// Normalise a `website` cell to a full URL, or null if the firm has none. The CSV
+// stores bare domains (e.g. "www.foo.co.uk") with no scheme.
+export function firmWebsite(raw) {
+  const w = (raw == null ? '' : String(raw)).trim();
+  if (!w || w.toUpperCase() === 'NA') return null;
+  return /^https?:\/\//i.test(w) ? w : 'https://' + w;
+}
+
 function deriveRow(r) {
   r.employees = num(r.Employees_thisyear);
   r.employeesLast = num(r.Employees_lastyear);
