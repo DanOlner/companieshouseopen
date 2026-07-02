@@ -30,7 +30,12 @@
       "Bash(node verify_regress.mjs)",
       "Bash(cp /Users/danolner/Code/companieshouseopen/webmap/js/app.js /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/ds_app.mjs)",
       "Bash(node --check /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/ds_app.mjs)",
-      "Bash(node verify_defaultsel.mjs)"
+      "Bash(node verify_defaultsel.mjs)",
+      "Bash(cp /Users/danolner/Code/companieshouseopen/webmap/js/map.js /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/scale_map.mjs)",
+      "Bash(node --check /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/check/scale_map.mjs)",
+      "Bash(node verify_scale.mjs)",
+      "Bash(sed -i '' 's#{colorscale:\\\\[cs\\\\],reversescale:\\\\[rev\\\\]}#{'\\\\''marker.colorscale'\\\\'':[cs],'\\\\''marker.reversescale'\\\\'':[rev]}#' /private/tmp/claude-501/-Users-danolner-Code-companieshouseopen/2902fed0-f7b6-4334-b624-7ed506981b21/scratchpad/pptr/scale_compare.mjs)",
+      "Bash(node scale_compare.mjs)"
     ],
     "additionalDirectories": [
       "/tmp",

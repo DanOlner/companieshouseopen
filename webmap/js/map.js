@@ -6,6 +6,40 @@ const fmtInt = (v) => (v == null ? '—' : Number(v).toLocaleString());
 const fmtPct = (v) => (v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%');
 const fmtAge = (v) => (v == null ? '—' : v.toFixed(1));
 
+// Min/max of a value across the current rows, for scaling the colour bar to the
+// selection. Falls back to [0,1] when empty and nudges a degenerate single value.
+function extent(rows, get) {
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows) {
+    const v = get(r);
+    if (v == null || Number.isNaN(v)) continue;
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (lo === Infinity) return [0, 1];
+  if (lo === hi) return [lo, hi + 1];
+  return [lo, hi];
+}
+
+// The p-th percentile of |value| across rows. Used as a robust cap for the
+// diverging % change scale so a few extreme outliers don't dominate it.
+function absPercentile(rows, get, p) {
+  const arr = [];
+  for (const r of rows) { const v = get(r); if (v == null || Number.isNaN(v)) continue; arr.push(Math.abs(v)); }
+  if (!arr.length) return 1;
+  arr.sort((a, b) => a - b);
+  return arr[Math.min(arr.length - 1, Math.floor(p * arr.length))] || 1;
+}
+
+// Colour-bar ticks for a log-scaled count: round employee values within [lo,hi],
+// placed at their log positions and labelled with the real number.
+function logTicks(lo, hi) {
+  const nice = [1, 2, 3, 5, 10, 20, 30, 50, 100, 200, 300, 500, 1000, 2000, 5000, 10000];
+  let vals = nice.filter(v => v >= lo && v <= hi);
+  if (vals.length < 2) vals = [Math.max(1, Math.round(lo)), Math.max(2, Math.round(hi))];
+  return { tickvals: vals.map(v => Math.log10(Math.max(v, 1))), ticktext: vals.map(v => v.toLocaleString()) };
+}
+
 export class MapView {
   constructor({ divId, meta, onSelect, onFirmClick }) {
     this.div = document.getElementById(divId);
@@ -27,18 +61,27 @@ export class MapView {
   }
 
   _markerColorSpec(rows, metric) {
+    // Scale the colour bar to the min/max of the current selection (both metrics).
     if (metric === 'pct') {
-      const cap = Math.max(this.meta.pctRef, 10);
+      // 0-centred, symmetric, robust cap: keeps 0 = neutral, red = shrank / green = grew.
+      const cap = Math.max(absPercentile(rows, r => r.pct, 0.95), 1);
       return {
         color: rows.map(r => r.pct),
-        colorscale: RDYLGN, cmin: -cap, cmid: 0, cmax: cap,
+        colorscale: RDYLGN, cmin: -cap, cmax: cap,
         colorbar: { title: { text: 'Δ % YoY', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2 },
       };
     }
+    // Log-compressed so the many small firms spread across the palette instead of
+    // all sitting at the low (yellow) end. cmin/cmax still track the selection.
+    const [lo, hi] = extent(rows, r => r.employees);
+    const cmin = Math.log10(Math.max(lo, 1));
+    let cmax = Math.log10(Math.max(hi, 1));
+    if (cmax <= cmin) cmax = cmin + 1;
+    const { tickvals, ticktext } = logTicks(lo, hi);
     return {
-      color: rows.map(r => r.employees),
-      colorscale: 'YlOrRd', reversescale: true, cmin: 0, cmax: Math.max(this.meta.empRef, 1),
-      colorbar: { title: { text: 'Employees', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2 },
+      color: rows.map(r => (r.employees == null ? null : Math.log10(Math.max(r.employees, 1)))),
+      colorscale: 'Portland', cmin, cmax,
+      colorbar: { title: { text: 'Employees', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2, tickvals, ticktext },
     };
   }
 
