@@ -30,7 +30,7 @@ async function init() {
     treemap = new TreemapView({
       divId: 'treemap',
       sectionColors: loaded.sectionColors,
-      onSelectSector: (level, code) => filters.setSicSelection(level, [code]),
+      onSelectSector: (level, code) => { if (!level) filters.clearSic(); else filters.setSicSelection(level, [code]); },
     });
 
     filters = new Filters({
@@ -51,12 +51,11 @@ async function init() {
 
 // Recompute filtered sets and redraw map + treemap.
 function refresh() {
-  const bandAge = filters.apply(rows, false);       // treemap navigator (ignores SIC selection)
-  const base = filters.apply(rows, true);           // map (all filters)
+  const base = filters.apply(rows, true);           // all filters incl. SIC selection
   state.plotted = state.metric === 'pct' ? base.filter(r => r.pct != null) : base;
 
   map.render(state.plotted, state.metric);
-  treemap.render(bandAge, state.tmMetric);
+  treemap.render(base, state.tmMetric, filters.currentTreemapLevel()); // treemap reflects + zooms to the SIC selection
 
   state.selection = null; // a re-filter invalidates any prior lasso/box selection
   updateCounts();
@@ -79,7 +78,7 @@ function wireControls() {
   // treemap size metric (redraw treemap only; keeps map selection)
   document.querySelectorAll('input[name="tmMetric"]').forEach(r =>
     r.addEventListener('change', () => {
-      if (r.checked) { state.tmMetric = r.value; treemap.render(filters.apply(rows, false), state.tmMetric); }
+      if (r.checked) { state.tmMetric = r.value; treemap.render(filters.apply(rows, true), state.tmMetric, filters.currentTreemapLevel()); }
     }));
 
   // map tool buttons

@@ -69,6 +69,30 @@ export class Filters {
     this.onChange();
   }
 
+  // Called when the treemap zooms back to the top -> clear the SIC selection.
+  clearSic() {
+    if (this.state.sicSelected.size === 0) return; // nothing selected; avoid a needless refresh
+    this.state.sicSelected = new Set();
+    this._renderSicList();
+    this.onChange();
+  }
+
+  // The treemap node id matching the current single selection (else 'ALL'), so the
+  // treemap can zoom to it. Multi-select and 3-digit (no treemap tier) -> 'ALL'.
+  currentTreemapLevel() {
+    const { sicLevel, sicSelected } = this.state;
+    if (sicSelected.size !== 1) return 'ALL';
+    const code = [...sicSelected][0];
+    if (sicLevel === 'section') return `sec::${code}`;
+    const field = SIC_LEVELS[sicLevel].code;
+    const row = this.rows.find(r => String(r[field] ?? '').trim() === code);
+    if (!row) return 'ALL';
+    const letter = String(row.SIC_SECTION_LETTER ?? '').trim();
+    if (sicLevel === 'd2') return `d2::${letter}::${code}`;
+    if (sicLevel === 'd5') return `d5::${letter}::${String(row.SIC_2DIGIT_CODE ?? '').trim()}::${code}`;
+    return 'ALL';
+  }
+
   reset() {
     this.state.sicSelected = new Set();
     this.state.bands = new Set();

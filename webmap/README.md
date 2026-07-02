@@ -16,7 +16,10 @@ app — no R server needed.
 - **Export CSV** of the current selection — or, if nothing is selected, the firms
   currently shown. Keeps all original columns plus a computed `pct_change`.
 - **SIC treemap** (bottom panel): section → 2-digit → 5-digit, sized by firm count
-  or employees. **Click a tile to filter the map** to that sector.
+  or employees. It stays two-way in sync with the sidebar SIC filter: **click a tile
+  to filter** the map + sidebar to that sector, **tick sidebar boxes** (one or many)
+  to filter the treemap, and **zoom back out to "All South Yorkshire"** to clear the
+  selection.
 - Click any firm for a detail popup with a link to its Companies House page.
 
 ## Run locally

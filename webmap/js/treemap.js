@@ -10,9 +10,12 @@ export class TreemapView {
     this.sectionColors = sectionColors;
     this.onSelectSector = onSelectSector;
     this._drawn = false;
+    this._rev = 0;             // bumped whenever we force the zoom level
+    this._uirev = 'tm0';       // current treemap uirevision
+    this._selfDriven = false;  // set by a click so we don't fight its own zoom animation
   }
 
-  render(rows, metric) {
+  render(rows, metric, desiredLevel = 'ALL') {
     // Aggregate totals per node so branchvalues:'total' stays consistent.
     const sec = new Map();  // letter -> {label, value}
     const d2 = new Map();   // id -> {label, parent, value, letter}
@@ -39,13 +42,16 @@ export class TreemapView {
     }
 
     const ids = [], labels = [], parents = [], values = [], colors = [];
-    const push = (id, label, parent, value, letter) => {
-      ids.push(id); labels.push(label); parents.push(parent); values.push(value);
-      colors.push(this.sectionColors[letter] || '#9e9e9e');
+    const push = (id, label, parent, value, color) => {
+      ids.push(id); labels.push(label); parents.push(parent); values.push(value); colors.push(color);
     };
-    for (const [letter, o] of sec) push(`sec::${letter}`, o.label, '', o.value, letter);
-    for (const [id, o] of d2) push(id, o.label, o.parent, o.value, o.letter);
-    for (const [id, o] of d5) push(id, o.label, o.parent, o.value, o.letter);
+    // Explicit root so there's always a level above the sections to zoom out to;
+    // reaching it (nextLevel === 'ALL') means "no SIC filter" and clears the selection.
+    let total = 0; for (const o of sec.values()) total += o.value;
+    push('ALL', 'All South Yorkshire', '', total, '#e9edf2');
+    for (const [letter, o] of sec) push(`sec::${letter}`, o.label, 'ALL', o.value, this.sectionColors[letter] || '#9e9e9e');
+    for (const [id, o] of d2) push(id, o.label, o.parent, o.value, this.sectionColors[o.letter] || '#9e9e9e');
+    for (const [id, o] of d5) push(id, o.label, o.parent, o.value, this.sectionColors[o.letter] || '#9e9e9e');
 
     const trace = {
       type: 'treemap',
@@ -59,19 +65,35 @@ export class TreemapView {
       texttemplate: '%{label}<br>%{value:,}',
     };
 
-    const layout = { margin: { l: 0, r: 0, t: 0, b: 0 }, uirevision: 'tm' };
+    // Drive the zoom from the SIC selection so sidebar-select drills in like a click,
+    // and clearing zooms back out. Skip right after a click (Plotly is already
+    // animating that drill — forcing the level would kill the animation).
+    if (this._selfDriven) {
+      this._selfDriven = false;
+    } else {
+      trace.level = desiredLevel;
+      this._rev++;
+      this._uirev = 'tm' + this._rev;
+    }
+
+    const layout = { margin: { l: 0, r: 0, t: 0, b: 0 }, uirevision: this._uirev };
     Plotly.react(this.div, [trace], layout, { responsive: true, displayModeBar: false });
 
     if (!this._drawn) {
       this._drawn = true;
       this.div.on('plotly_treemapclick', (ev) => {
-        const p = ev && ev.points && ev.points[0];
-        if (!p || !p.id) return;
-        const parts = String(p.id).split('::');
+        // nextLevel = the node we're navigating TO (drill-in target, or parent on
+        // zoom-out). 'sec/d2/d5' select that node; 'ALL' or the synthetic root hash
+        // mean we've zoomed back to the top -> clear the SIC selection.
+        const dest = ev && ev.nextLevel;
+        if (dest === undefined) return;
+        this._selfDriven = true; // this click animates its own zoom; don't force a level on the ensuing render
+        const parts = String(dest).split('::');
         if (parts[0] === 'sec') this.onSelectSector('section', parts[1]);
         else if (parts[0] === 'd2') this.onSelectSector('d2', parts[2]);
         else if (parts[0] === 'd5') this.onSelectSector('d5', parts[3]);
-        // don't return false -> allow the treemap's own drill-in zoom as well
+        else this.onSelectSector(null, null);
+        // don't return false -> allow the treemap's own drill/zoom animation as well
       });
     }
   }
