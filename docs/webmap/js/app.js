@@ -70,7 +70,10 @@ function refresh() {
 }
 
 function updateCounts() {
-  $('countSel').textContent = (state.selection ? state.selection.length : 0).toLocaleString();
+  const sel = state.selection || [];
+  const emp = sel.reduce((s, r) => s + (r.employees || 0), 0);
+  $('countSel').textContent = sel.length.toLocaleString();
+  $('countSelEmp').textContent = emp.toLocaleString();
 }
 
 // Apply a box/lasso result. In "add to selection" mode the new points are unioned
