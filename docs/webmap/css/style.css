@@ -100,6 +100,17 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .checklist .cl-count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-left: 8px; }
 .checklist .cl-name { flex: 1; }
 
+/* 3-way segmented switch (used for the % change YoY filter) */
+.segmented { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fff; }
+.segmented .seg {
+  flex: 1; padding: 6px 4px; border: none; border-left: 1px solid var(--border);
+  background: #fff; color: var(--ink); cursor: pointer; font-size: 13px; line-height: 1.1;
+}
+.segmented .seg:first-child { border-left: none; }
+.segmented .seg:hover { background: #eef3fa; }
+.segmented .seg.active { background: var(--accent); color: var(--accent-ink); }
+.segmented .seg.active:hover { background: var(--accent); }
+
 .blockfoot { margin-top: 6px; }
 .linkbtn { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 12px; }
 .linkbtn:hover { text-decoration: underline; }
@@ -112,11 +123,31 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   background: #fff; cursor: pointer; font-size: 13px;
 }
 #resetFilters:hover { background: #eef3fa; }
-.note { color: var(--muted); font-size: 12px; margin-top: 12px; line-height: 1.4; }
+.note { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.35; }
 
 /* ---------- main / map / treemap ---------- */
 #main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
-#map { flex: 1 1 auto; min-height: 0; }
+#mapWrap { flex: 1 1 auto; position: relative; min-height: 0; }
+#map { position: absolute; inset: 0; }
+
+/* Distribution overlay, bottom-left of the map: selection vs all-shown firms */
+#distPanel {
+  position: absolute; left: 10px; bottom: 10px; z-index: 500; width: 300px;
+  background: rgba(255,255,255,.92); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.18); overflow: hidden;
+}
+.dist-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 8px; font-size: 11px; color: var(--muted);
+  border-bottom: 1px solid var(--border); background: rgba(244,245,247,.9);
+}
+#distPanel.collapsed { width: auto; }
+#distPanel.collapsed .dist-head { border-bottom: none; }
+#distPanel.collapsed #distChart { display: none; }
+.dist-head-right { display: flex; align-items: center; gap: 7px; }
+.dist-head label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+#distTitle { font-weight: 600; color: var(--ink); }
+#distChart { height: 120px; }
 
 /* Leaflet-style +/- zoom control, overlaid on the top-left of the map */
 #mapZoom {

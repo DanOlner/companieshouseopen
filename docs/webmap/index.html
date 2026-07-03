@@ -21,7 +21,7 @@
     <div class="topgroup">
       <span class="lbl">Size / colour by:</span>
       <label><input type="radio" name="metric" value="count" checked /> Employee count</label>
-      <label><input type="radio" name="metric" value="pct" /> % change (YoY)</label>
+      <label><input type="radio" name="metric" value="pct" /> % change (YoY)*</label>
     </div>
 
     <div class="topgroup" id="tools">
@@ -43,6 +43,16 @@
       <section class="filterblock">
         <h2>Employee band</h2>
         <div class="checklist checklist--wrap" id="bandList"></div>
+      </section>
+
+      <section class="filterblock">
+        <h2>% change (YoY)*</h2>
+        <p class="note">shown only for firms with 5+ employees last year</p>
+        <div class="segmented" id="pctDir" role="group" aria-label="Filter by year-on-year employee change">
+          <button type="button" class="seg active" data-pct="all">All</button>
+          <button type="button" class="seg" data-pct="neg">&lt; 0%</button>
+          <button type="button" class="seg" data-pct="pos">&gt; 0%</button>
+        </div>
       </section>
 
       <section class="filterblock">
@@ -74,14 +84,28 @@
       </section>
 
       <button id="resetFilters">Reset all filters</button>
-      <p class="note">% change is shown only for firms with 5+ employees last year.</p>
     </aside>
 
     <main id="main">
-      <div id="map"></div>
-      <div id="mapZoom">
-        <button id="zoomInBtn" title="Zoom in" aria-label="Zoom in">+</button>
-        <button id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
+      <div id="mapWrap">
+        <div id="map"></div>
+        <div id="mapZoom">
+          <button id="zoomInBtn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
+        </div>
+        <!-- Distribution overlay (selection vs all-shown firms). Feature is complete but
+             hidden for now — delete the `hidden` attribute below to switch it back on. -->
+        <div id="distPanel" hidden>
+          <div class="dist-head">
+            <span id="distTitle">Employee count</span>
+            <span class="dist-head-right">
+              <label><input type="radio" name="distKind" value="hist" checked /> bars</label>
+              <label><input type="radio" name="distKind" value="density" /> density</label>
+              <button id="distToggle" class="linkbtn" title="Selection vs all shown firms — click a bars/density; drag a box or lasso on the map to compare a selection">hide</button>
+            </span>
+          </div>
+          <div id="distChart"></div>
+        </div>
       </div>
       <div id="treemapPanel">
         <div class="panel-head">

@@ -15,6 +15,7 @@ export class Filters {
       bands: new Set(),
       age: [0, meta.maxAge],
       hasWebsite: false,
+      pctDir: 'all',          // 'all' | 'neg' (shrank) | 'pos' (grew)
     };
 
     this.el = {
@@ -28,6 +29,7 @@ export class Filters {
       ageMaxLbl: document.getElementById('ageMaxLbl'),
       hasWebsite: document.getElementById('hasWebsite'),
       webCount: document.getElementById('webCount'),
+      pctDir: document.getElementById('pctDir'),
       reset: document.getElementById('resetFilters'),
     };
 
@@ -48,19 +50,23 @@ export class Filters {
   // includeSic=false is used for the treemap, so it always shows the full sector
   // breakdown (clicking a tile is what applies the SIC filter to the map).
   apply(rows, includeSic = true) {
-    const { bands, age, sicLevel, sicSelected } = this.state;
+    const { bands, age, sicLevel, sicSelected, pctDir } = this.state;
     const codeField = SIC_LEVELS[sicLevel].code;
     const useBands = bands.size > 0;
     const useSic = includeSic && sicSelected.size > 0;
     const [amin, amax] = age;
     const useAge = amin > 0 || amax < this.meta.maxAge;
     const useWeb = this.state.hasWebsite;
+    const usePct = pctDir !== 'all';
 
     const out = [];
     for (const r of rows) {
       if (useBands && !bands.has(r.sizecategory)) continue;
       if (useAge && (r.age == null || r.age < amin || r.age > amax)) continue;
       if (useWeb && !firmWebsite(r.website)) continue;
+      // % change filter: null pct (firms with <5 employees last year) drops out
+      // whenever a direction is chosen.
+      if (usePct && (r.pct == null || (pctDir === 'neg' ? r.pct >= 0 : r.pct <= 0))) continue;
       if (useSic) {
         const c = r[codeField] == null ? '' : String(r[codeField]).trim();
         if (!sicSelected.has(c)) continue;
@@ -109,10 +115,12 @@ export class Filters {
     this.state.bands = new Set();
     this.state.age = [0, this.meta.maxAge];
     this.state.hasWebsite = false;
+    this.state.pctDir = 'all';
     this.el.sicSearch.value = '';
     this._renderSicList();
     this.el.bandList.querySelectorAll('input').forEach(i => { i.checked = false; });
     this.el.hasWebsite.checked = false;
+    this.el.pctDir.querySelectorAll('.seg').forEach(b => b.classList.toggle('active', b.dataset.pct === 'all'));
     this._ageSlider.set([0, this.meta.maxAge]);
     this.onChange();
   }
@@ -204,6 +212,11 @@ export class Filters {
       this.state.hasWebsite = this.el.hasWebsite.checked;
       this.onChange();
     });
+    this.el.pctDir.querySelectorAll('.seg').forEach(btn => btn.addEventListener('click', () => {
+      this.state.pctDir = btn.dataset.pct;
+      this.el.pctDir.querySelectorAll('.seg').forEach(b => b.classList.toggle('active', b === btn));
+      this.onChange();
+    }));
     this.el.reset.addEventListener('click', () => this.reset());
   }
 }

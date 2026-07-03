@@ -3,15 +3,16 @@ import { loadData, firmWebsite } from './data.js';
 import { Filters } from './filters.js';
 import { MapView, fmtInt, fmtPct, fmtAge } from './map.js';
 import { TreemapView } from './treemap.js';
+import { DistView } from './dist.js';
 import { exportCsv } from './export.js';
 
 const DATA_URL = 'data/companieshouse_sy.csv';
 const BOUNDARIES_URL = 'data/sy_localauthorities.geojson';
 
 const $ = (id) => document.getElementById(id);
-const state = { metric: 'count', tmMetric: 'emp', selection: null, selectedRows: null, additive: false, plotted: [] };
+const state = { metric: 'count', tmMetric: 'emp', selection: null, selectedRows: null, additive: false, plotted: [], distKind: 'hist' };
 
-let rows, headers, filters, map, treemap;
+let rows, headers, filters, map, treemap, dist;
 
 init();
 
@@ -37,6 +38,8 @@ async function init() {
       sectionColors: loaded.sectionColors,
       onSelectSector: (level, code) => { if (!level) filters.clearSic(); else filters.setSicSelection(level, [code]); },
     });
+
+    dist = new DistView({ divId: 'distChart' });
 
     filters = new Filters({
       rows,
@@ -66,6 +69,7 @@ function refresh() {
   map.clearSelection();            // and clear its on-map highlight (uirevision would otherwise keep it lit)
   state.selection = state.plotted; // default: all filtered firms are "selected" (ready to export); box/lasso narrows further
   updateCounts();
+  updateDist();
   resizePlots();
 }
 
@@ -74,6 +78,17 @@ function updateCounts() {
   const emp = sel.reduce((s, r) => s + (r.employees || 0), 0);
   $('countSel').textContent = sel.length.toLocaleString();
   $('countSelEmp').textContent = emp.toLocaleString();
+}
+
+// Redraw the bottom-left distribution overlay: the current filtered set ("all shown")
+// as the baseline, with the explicit box/lasso selection (if any) overlaid on top.
+function updateDist() {
+  if (!dist) return;
+  const panel = $('distPanel');
+  if (panel.hidden) return;                          // feature switched off (see index.html)
+  $('distTitle').textContent = state.metric === 'pct' ? '% change (YoY)' : 'Employee count';
+  if (panel.classList.contains('collapsed')) return;
+  dist.render(state.plotted, state.selectedRows, state.metric, state.distKind);
 }
 
 // Apply a box/lasso result. In "add to selection" mode the new points are unioned
@@ -98,6 +113,7 @@ function applySelection(sel) {
   }
   state.selection = state.selectedRows && state.selectedRows.length ? state.selectedRows : state.plotted;
   updateCounts();
+  updateDist();
 }
 
 function wireControls() {
@@ -138,12 +154,24 @@ function wireControls() {
     state.selectedRows = null;
     state.selection = state.plotted; // reset to the full filtered set (the default)
     updateCounts();
+    updateDist();
   });
 
   $('exportBtn').addEventListener('click', () => {
     const out = state.selection && state.selection.length ? state.selection : state.plotted;
     if (!out.length) { alert('Nothing to export — no firms are shown.'); return; }
     exportCsv(out, headers);
+  });
+
+  // distribution overlay: bars/density view + show/hide
+  document.querySelectorAll('input[name="distKind"]').forEach(r =>
+    r.addEventListener('change', () => { if (r.checked) { state.distKind = r.value; updateDist(); } }));
+  $('distToggle').addEventListener('click', () => {
+    const panel = $('distPanel');
+    panel.classList.toggle('collapsed');
+    $('distToggle').textContent = panel.classList.contains('collapsed') ? 'show' : 'hide';
+    updateDist();
+    resizePlots();
   });
 
   // treemap panel show/hide
@@ -166,6 +194,7 @@ function resizePlots() {
     if (map && map.div) Plotly.Plots.resize(map.div);
     const tm = $('treemap');
     if (treemap && !$('treemapPanel').classList.contains('collapsed')) Plotly.Plots.resize(tm);
+    if (dist && dist._drawn && !$('distPanel').classList.contains('collapsed')) Plotly.Plots.resize(dist.div);
   });
 }
 
