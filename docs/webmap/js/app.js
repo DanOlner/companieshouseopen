@@ -9,7 +9,7 @@ const DATA_URL = 'data/companieshouse_sy.csv';
 const BOUNDARIES_URL = 'data/sy_localauthorities.geojson';
 
 const $ = (id) => document.getElementById(id);
-const state = { metric: 'count', tmMetric: 'emp', selection: null, plotted: [] };
+const state = { metric: 'count', tmMetric: 'emp', selection: null, selectedRows: null, additive: false, plotted: [] };
 
 let rows, headers, filters, map, treemap;
 
@@ -28,7 +28,7 @@ async function init() {
       divId: 'map',
       meta: loaded.meta,
       boundaries,
-      onSelect: (sel) => { state.selection = sel && sel.length ? sel : state.plotted; updateCounts(); },
+      onSelect: (sel) => applySelection(sel),
       onFirmClick: (row, ev) => showFirmPopup(row, ev),
     });
 
@@ -62,6 +62,8 @@ function refresh() {
   map.render(state.plotted, state.metric);
   treemap.render(base, state.tmMetric, filters.currentTreemapLevel()); // treemap reflects + zooms to the SIC selection
 
+  state.selectedRows = null;       // a filter change drops any accumulated box/lasso selection
+  map.clearSelection();            // and clear its on-map highlight (uirevision would otherwise keep it lit)
   state.selection = state.plotted; // default: all filtered firms are "selected" (ready to export); box/lasso narrows further
   updateCounts();
   resizePlots();
@@ -69,6 +71,30 @@ function refresh() {
 
 function updateCounts() {
   $('countSel').textContent = (state.selection ? state.selection.length : 0).toLocaleString();
+}
+
+// Apply a box/lasso result. In "add to selection" mode the new points are unioned
+// (by row identity) with the running selection and the whole union is re-highlighted;
+// otherwise each selection replaces the last. state.selectedRows is the explicit
+// selection (null = none), kept distinct from the "default = all plotted" fallback.
+function applySelection(sel) {
+  if (sel && sel.length) {
+    if (state.additive && state.selectedRows) {
+      const set = new Set(state.selectedRows);
+      sel.forEach(r => set.add(r));
+      state.selectedRows = [...set];
+    } else {
+      state.selectedRows = sel;
+    }
+    map.highlight(state.selectedRows);
+  } else if (state.additive) {
+    return;                       // in add mode, ignore an empty/deselect so a stray click can't wipe the set
+  } else {
+    state.selectedRows = null;    // a plain deselect clears back to the default
+    map.clearSelection();
+  }
+  state.selection = state.selectedRows && state.selectedRows.length ? state.selectedRows : state.plotted;
+  updateCounts();
 }
 
 function wireControls() {
@@ -95,10 +121,18 @@ function wireControls() {
   $('zoomInBtn').addEventListener('click', () => map.zoomBy(1));
   $('zoomOutBtn').addEventListener('click', () => map.zoomBy(-1));
 
+  // "add to selection" toggle — when on, each box/lasso selection accumulates
+  $('addSelBtn').addEventListener('click', () => {
+    state.additive = !state.additive;
+    $('addSelBtn').classList.toggle('on', state.additive);
+    $('addSelBtn').setAttribute('aria-pressed', String(state.additive));
+  });
+
   $('clearSelBtn').addEventListener('click', () => {
     map.clearSelection();
     map.setDragMode('pan');                        // leave box-select / lasso, restore drag-to-pan
     toolBtns.forEach(b => b.classList.remove('active'));
+    state.selectedRows = null;
     state.selection = state.plotted; // reset to the full filtered set (the default)
     updateCounts();
   });

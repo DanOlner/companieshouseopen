@@ -63,6 +63,9 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #topbar button.tool.active { background: var(--accent); border-color: var(--accent); }
 #exportBtn { background: var(--accent); border-color: var(--accent); font-weight: 600; }
 #exportBtn:hover { background: #3a7cc0; }
+#addSelBtn { font-size: 15px; font-weight: 700; line-height: 1; }
+#addSelBtn.on { background: var(--accent); border-color: var(--accent); }
+#addSelBtn.on:hover { background: #3a7cc0; }
 
 /* ---------- body ---------- */
 #bodywrap { flex: 1 1 auto; display: flex; min-height: 0; }

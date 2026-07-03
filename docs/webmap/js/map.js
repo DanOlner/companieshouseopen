@@ -168,6 +168,16 @@ export class MapView {
   clearSelection() {
     if (this._drawn) Plotly.restyle(this.div, { selectedpoints: [null] });
   }
+
+  // Light up an explicit set of rows on the map. Used by "add to selection" so the
+  // whole accumulated union stays highlighted, not just the most recent box/lasso.
+  highlight(rows) {
+    if (!this._drawn) return;
+    if (!rows || !rows.length) { this.clearSelection(); return; }
+    const idx = new Map(this.currentRows.map((r, i) => [r, i]));
+    const pts = rows.map(r => idx.get(r)).filter(i => i != null);
+    Plotly.restyle(this.div, { selectedpoints: [pts] });
+  }
 }
 
 export { fmtInt, fmtPct, fmtAge };

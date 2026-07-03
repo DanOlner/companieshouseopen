@@ -27,6 +27,7 @@
     <div class="topgroup" id="tools">
       <button class="tool" data-mode="select">▭ Box select</button>
       <button class="tool" data-mode="lasso">◠ Lasso</button>
+      <button id="addSelBtn" class="toggle" title="Add to selection — when on, each box/lasso selection is added to the current selection instead of replacing it" aria-pressed="false">+</button>
       <button id="clearSelBtn" title="Clear the current selection and return to pan / scroll-zoom">Clear selection</button>
     </div>
 
@@ -51,7 +52,6 @@
       </section>
 
       <section class="filterblock">
-        <h2>Website</h2>
         <div class="checklist checklist--wrap">
           <label><input type="checkbox" id="hasWebsite" /><span class="cl-name">Only firms with a website</span><span class="cl-count" id="webCount">–</span></label>
         </div>
