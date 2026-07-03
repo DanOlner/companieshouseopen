@@ -68,10 +68,6 @@ function refresh() {
 }
 
 function updateCounts() {
-  const shown = state.plotted;
-  const emp = shown.reduce((s, r) => s + (r.employees || 0), 0);
-  $('countShown').textContent = shown.length.toLocaleString();
-  $('countEmp').textContent = emp.toLocaleString();
   $('countSel').textContent = (state.selection ? state.selection.length : 0).toLocaleString();
 }
 
@@ -93,10 +89,16 @@ function wireControls() {
     btn.classList.add('active');
     map.setDragMode(btn.dataset.mode);
   }));
-  document.querySelector('#tools .tool[data-mode="pan"]').classList.add('active');
+  // Default (no active tool) is pan + scroll-zoom, set by map.mode in the constructor.
+
+  // on-map +/- zoom control
+  $('zoomInBtn').addEventListener('click', () => map.zoomBy(1));
+  $('zoomOutBtn').addEventListener('click', () => map.zoomBy(-1));
 
   $('clearSelBtn').addEventListener('click', () => {
     map.clearSelection();
+    map.setDragMode('pan');                        // leave box-select / lasso, restore drag-to-pan
+    toolBtns.forEach(b => b.classList.remove('active'));
     state.selection = state.plotted; // reset to the full filtered set (the default)
     updateCounts();
   });

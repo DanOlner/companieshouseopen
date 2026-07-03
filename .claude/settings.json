@@ -43,7 +43,10 @@
       "Bash(git add *)",
       "Bash(git commit -m 'Add .nojekyll to skip Jekyll build on Pages *)",
       "Bash(git push *)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "Bash(grep -n \"const \\\\$\\\\|function \\\\$\\\\|\\\\$ =\" docs/webmap/js/app.js)",
+      "Bash(grep \"\\\\$\")",
+      "Bash(grep -rn \"export.*\\\\$\\\\|\\\\$.*getElementById\\\\|const \\\\$\" docs/webmap/js/)"
     ],
     "additionalDirectories": [
       "/tmp",

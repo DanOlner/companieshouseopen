@@ -25,16 +25,12 @@
     </div>
 
     <div class="topgroup" id="tools">
-      <span class="lbl">Map tool:</span>
-      <button class="tool" data-mode="pan">Pan</button>
-      <button class="tool" data-mode="zoom">Zoom</button>
       <button class="tool" data-mode="select">▭ Box select</button>
       <button class="tool" data-mode="lasso">◠ Lasso</button>
-      <button id="clearSelBtn" title="Clear the current selection">Clear selection</button>
+      <button id="clearSelBtn" title="Clear the current selection and return to pan / scroll-zoom">Clear selection</button>
     </div>
 
     <div class="topgroup counts">
-      <span>Shown: <strong id="countShown">–</strong> firms · <strong id="countEmp">–</strong> employees</span>
       <span>Selected: <strong id="countSel">0</strong> firms</span>
     </div>
 
@@ -43,22 +39,6 @@
 
   <div id="bodywrap">
     <aside id="sidebar">
-      <section class="filterblock">
-        <h2>SIC sector</h2>
-        <label class="field">
-          <span>Level</span>
-          <select id="sicLevel">
-            <option value="section">Section</option>
-            <option value="d2">2-digit</option>
-            <option value="d3">3-digit</option>
-            <option value="d5">5-digit</option>
-          </select>
-        </label>
-        <input type="search" id="sicSearch" placeholder="Filter list…" />
-        <div class="checklist" id="sicList"></div>
-        <div class="blockfoot"><button class="linkbtn" id="sicClear">clear SIC selection</button></div>
-      </section>
-
       <section class="filterblock">
         <h2>Employee band</h2>
         <div class="checklist checklist--wrap" id="bandList"></div>
@@ -77,12 +57,32 @@
         </div>
       </section>
 
+      <section class="filterblock">
+        <h2>SIC sector</h2>
+        <label class="field">
+          <span>Level</span>
+          <select id="sicLevel">
+            <option value="section">Section</option>
+            <option value="d2">2-digit</option>
+            <option value="d3">3-digit</option>
+            <option value="d5">5-digit</option>
+          </select>
+        </label>
+        <input type="search" id="sicSearch" placeholder="Filter list…" />
+        <div class="checklist" id="sicList"></div>
+        <div class="blockfoot"><button class="linkbtn" id="sicClear">clear SIC selection</button></div>
+      </section>
+
       <button id="resetFilters">Reset all filters</button>
       <p class="note">% change is shown only for firms with 5+ employees last year.</p>
     </aside>
 
     <main id="main">
       <div id="map"></div>
+      <div id="mapZoom">
+        <button id="zoomInBtn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button id="zoomOutBtn" title="Zoom out" aria-label="Zoom out">−</button>
+      </div>
       <div id="treemapPanel">
         <div class="panel-head">
           <span>Sectors treemap — click a tile to filter the map / click top left to go back up a level</span>

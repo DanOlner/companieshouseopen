@@ -157,6 +157,14 @@ export class MapView {
     Plotly.relayout(this.div, { dragmode: mode });
   }
 
+  // Step the mapbox zoom (used by the on-map +/- buttons). Reads the live zoom
+  // from _fullLayout so it stays in sync after the user pans/scroll-zooms.
+  zoomBy(delta) {
+    const mb = this.div._fullLayout && this.div._fullLayout.mapbox;
+    const cur = mb ? mb.zoom : this.div.layout.mapbox.zoom;
+    Plotly.relayout(this.div, { 'mapbox.zoom': cur + delta });
+  }
+
   clearSelection() {
     if (this._drawn) Plotly.restyle(this.div, { selectedpoints: [null] });
   }

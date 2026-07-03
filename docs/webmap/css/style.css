@@ -61,7 +61,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 }
 #topbar button:hover { background: #49556a; }
 #topbar button.tool.active { background: var(--accent); border-color: var(--accent); }
-#exportBtn { margin-left: auto; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+#exportBtn { background: var(--accent); border-color: var(--accent); font-weight: 600; }
 #exportBtn:hover { background: #3a7cc0; }
 
 /* ---------- body ---------- */
@@ -112,8 +112,23 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .note { color: var(--muted); font-size: 12px; margin-top: 12px; line-height: 1.4; }
 
 /* ---------- main / map / treemap ---------- */
-#main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 #map { flex: 1 1 auto; min-height: 0; }
+
+/* Leaflet-style +/- zoom control, overlaid on the top-left of the map */
+#mapZoom {
+  position: absolute; top: 10px; left: 10px; z-index: 500;
+  display: flex; flex-direction: column;
+  border: 2px solid rgba(0,0,0,.2); border-radius: 4px; background-clip: padding-box;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+#mapZoom button {
+  width: 30px; height: 30px; padding: 0; border: none; background: #fff; color: #333;
+  font-size: 18px; line-height: 28px; font-weight: 600; cursor: pointer;
+}
+#mapZoom button:first-child { border-radius: 2px 2px 0 0; border-bottom: 1px solid #ccc; }
+#mapZoom button:last-child { border-radius: 0 0 2px 2px; }
+#mapZoom button:hover { background: #f4f4f4; }
 
 #treemapPanel {
   flex: 0 0 var(--treemap-h);
