@@ -29,7 +29,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   height: var(--topbar-h);
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
+  align-items: center; 
   gap: 18px;
   padding: 0 14px;
   background: var(--ink);
