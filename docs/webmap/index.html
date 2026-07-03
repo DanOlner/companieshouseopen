@@ -36,6 +36,7 @@
     </div>
 
     <button id="exportBtn" title="Download the current selection (or the shown firms if nothing is selected) as CSV">⬇ Export CSV</button>
+    <button id="infoBtn" title="About this map" aria-label="More information">i</button>
   </header>
 
   <div id="bodywrap">
@@ -130,6 +131,15 @@
   <div id="firmPopup" hidden>
     <button id="firmPopupClose" aria-label="close">✕</button>
     <div id="firmPopupBody"></div>
+  </div>
+
+  <!-- Info / about modal (content loaded from info.html) -->
+  <div id="infoModal" hidden>
+    <div id="infoBackdrop"></div>
+    <div id="infoBox" role="dialog" aria-modal="true" aria-label="About this map">
+      <button id="infoClose" aria-label="close">✕</button>
+      <div id="infoBody"></div>
+    </div>
   </div>
 
   <!-- Loading overlay -->

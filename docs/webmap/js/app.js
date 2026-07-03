@@ -194,7 +194,24 @@ function wireControls() {
 
   // firm popup close
   $('firmPopupClose').addEventListener('click', () => { $('firmPopup').hidden = true; });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('firmPopup').hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { $('firmPopup').hidden = true; $('infoModal').hidden = true; }
+  });
+
+  // info / about modal — content loaded from info.html on first open, then cached
+  let infoLoaded = false;
+  $('infoBtn').addEventListener('click', async () => {
+    if (!infoLoaded) {
+      $('infoBody').innerHTML = await fetch('info.html')
+        .then(r => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
+        .catch(() => '<p>Could not load information.</p>');
+      infoLoaded = true;
+    }
+    $('infoModal').hidden = false;
+  });
+  const closeInfo = () => { $('infoModal').hidden = true; };
+  $('infoClose').addEventListener('click', closeInfo);
+  $('infoBackdrop').addEventListener('click', closeInfo);
 
   window.addEventListener('resize', resizePlots);
 }

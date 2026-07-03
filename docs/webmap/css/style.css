@@ -66,6 +66,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #addSelBtn { font-size: 15px; font-weight: 700; line-height: 1; }
 #addSelBtn.on { background: var(--accent); border-color: var(--accent); }
 #addSelBtn.on:hover { background: #3a7cc0; }
+#infoBtn {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%; flex: 0 0 auto;
+  font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 700; font-size: 14px; line-height: 1;
+}
 
 /* ---------- body ---------- */
 #bodywrap { flex: 1 1 auto; display: flex; min-height: 0; }
@@ -213,6 +217,27 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #firmPopupBody .pos { color: #1a7f37; font-weight: 600; }
 #firmPopupBody .neg { color: #c62828; font-weight: 600; }
 #firmPopupBody a { color: var(--accent); }
+
+/* ---------- info / about modal ---------- */
+#infoModal[hidden] { display: none; }
+#infoModal {
+  position: fixed; inset: 0; z-index: 3000;
+  display: flex; align-items: center; justify-content: center;
+}
+#infoBackdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+#infoBox {
+  position: relative; z-index: 1; max-width: 480px; width: calc(100% - 40px);
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.25); padding: 22px 24px; font-size: 14px; line-height: 1.5;
+}
+#infoClose {
+  position: absolute; top: 8px; right: 10px; border: none; background: none; cursor: pointer;
+  font-size: 16px; color: var(--muted);
+}
+#infoBody { color: var(--ink); }
+#infoBody :first-child { margin-top: 0; }
+#infoBody p { margin: 10px 0 0; }
+#infoBody a { color: var(--accent); }
 
 /* ---------- loading overlay ---------- */
 #loading {
