@@ -118,11 +118,14 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .slider { margin: 18px 6px 6px; }
 .rangelabels { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 6px; }
 
+/* Header row: block title with the "Reset all filters" button floated to its right */
+.blockhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.blockhead h2 { margin-bottom: 0; }
 #resetFilters {
-  width: 100%; padding: 7px; border: 1px solid var(--border); border-radius: 5px;
-  background: #fff; cursor: pointer; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--muted);
+  cursor: pointer; font-size: 11px; padding: 2px 7px; line-height: 1.4; white-space: nowrap;
 }
-#resetFilters:hover { background: #eef3fa; }
+#resetFilters:hover { background: #eef3fa; color: var(--ink); }
 .note { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.35; }
 
 /* ---------- main / map / treemap ---------- */
