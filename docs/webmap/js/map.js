@@ -95,7 +95,7 @@ export class MapView {
       return {
         color: rows.map(r => r.pct),
         colorscale: this._scaleFor('pct'), cmin: -cap, cmax: cap,
-        colorbar: { title: { text: 'Δ % YoY', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2 },
+        colorbar: { title: { text: 'Δ % YoY', side: 'right' }, thickness: 12, len: 0.6, x: 0.92, xanchor: 'left', xpad: 2 },
       };
     }
     // Log-compressed so the many small firms spread across the palette instead of
@@ -108,7 +108,7 @@ export class MapView {
     return {
       color: rows.map(r => (r.employees == null ? null : Math.log10(Math.max(r.employees, 1)))),
       colorscale: this._scaleFor('count'), cmin, cmax,
-      colorbar: { title: { text: 'Employees', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2, tickvals, ticktext },
+      colorbar: { title: { text: 'Employees', side: 'right' }, thickness: 12, len: 0.6, x: 0.92, xanchor: 'left', xpad: 2, tickvals, ticktext },
     };
   }
 
@@ -149,8 +149,8 @@ export class MapView {
       uirevision: 'keep', // preserve pan/zoom across re-renders (filtering/metric change)
       mapbox: {
         style: 'carto-positron',
-        center: { lon: -1.30, lat: 53.46 },
-        zoom: 9.2,
+        center: { lon: -1.33, lat: 53.48 },
+        zoom: 9.5,
         layers: this._boundaryLayers, // LA borders, rendered beneath the marker trace
       },
       showlegend: false,
@@ -163,11 +163,13 @@ export class MapView {
     if (!this._drawn) {
       this._drawn = true;
       this.div.on('plotly_selected', (ev) => {
+        if (this._priming) return;
         if (!ev || !ev.points) { this.onSelect(null); return; }
         this.onSelect(ev.points.map(p => this.currentRows[p.pointNumber]).filter(Boolean));
       });
-      this.div.on('plotly_deselect', () => this.onSelect(null));
+      this.div.on('plotly_deselect', () => { if (!this._priming) this.onSelect(null); });
       this.div.on('plotly_click', (ev) => {
+        if (this._priming) return;
         if (!ev || !ev.points || !ev.points.length) return;
         const row = this.currentRows[ev.points[0].pointNumber];
         if (row) this.onFirmClick(row, ev.event);
@@ -178,6 +180,47 @@ export class MapView {
   setDragMode(mode) {
     this.mode = mode;
     Plotly.relayout(this.div, { dragmode: mode });
+  }
+
+  // scattermapbox silently drops the very first box/lasso drag after page load, so the
+  // user's first real selection does nothing. Absorb it: once the map has loaded, fire a
+  // tiny synthetic drag in select mode with our own handler muted (see `_priming`), then
+  // restore pan + view. Returns a promise so the loading overlay can stay up meanwhile.
+  primeSelect() {
+    return new Promise((resolve) => {
+      const done = () => { this._doPrimeSelect().catch(() => {}).finally(resolve); };
+      const mb = this.div?._fullLayout?.mapbox?._subplot?.map;
+      if (mb && typeof mb.loaded === 'function' && mb.loaded()) done();
+      else if (mb && typeof mb.once === 'function') mb.once('load', done);
+      else setTimeout(done, 800);
+      setTimeout(resolve, 2500); // safety: never hold the loader more than 2.5s
+    });
+  }
+
+  async _doPrimeSelect() {
+    const canvas = this.div.querySelector('.mapboxgl-canvas');
+    if (!canvas) return;
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const mb = this.div._fullLayout && this.div._fullLayout.mapbox;
+    const center0 = mb ? { lon: mb.center.lon, lat: mb.center.lat } : null;
+    const zoom0 = mb ? mb.zoom : null;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const fire = (type, x, y, target) => target.dispatchEvent(new MouseEvent(type, {
+      bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, clientX: x, clientY: y,
+    }));
+    this._priming = true;
+    await Plotly.relayout(this.div, { dragmode: 'select' });
+    fire('mousedown', cx, cy, canvas);
+    fire('mousemove', cx + 16, cy + 16, document);
+    fire('mousemove', cx + 32, cy + 32, document);
+    fire('mouseup', cx + 32, cy + 32, document);
+    const restore = { dragmode: 'pan' };
+    if (center0) { restore['mapbox.center'] = center0; restore['mapbox.zoom'] = zoom0; }
+    await Plotly.relayout(this.div, restore);
+    this.mode = 'pan';
+    this.clearSelection();
+    this._priming = false;
   }
 
   // Swap between the default palettes and the colour-blind-friendly ones. Only the

@@ -11,12 +11,6 @@
   --treemap-h: 300px;
 }
 
-/* Global page scale — the single knob for how "zoomed in" the whole UI looks.
-   Acts exactly like the browser's own zoom, so the full-height layout still
-   fills the screen and the Export button (top-right) stays on screen without
-   horizontal scroll. Nudge this one number: 0.75 ≈ two Safari zoom-out steps. */
-html { zoom: 1; }
-
 * { box-sizing: border-box; }
 
 html, body {
@@ -156,11 +150,12 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #distTitle { font-weight: 600; color: var(--ink); }
 #distChart { height: 120px; }
 
-/* Colour-blind palette toggle, sitting just above the map colour bar (right edge).
-   The colour bar has len 0.6 centred vertically, so its top is ~20% down from the top. */
+/* Colour-blind palette toggle, centred just above the map colour bar. Kept in sync
+   with the bar: x:0.92 in map.js -> left:92% here (+6px = half the bar thickness to
+   centre on it); the bar's len-0.6 (centred) top sits 20% down, matched by top:20%. */
 #paletteToggle {
-  position: absolute; right: 8px; top: 20%; z-index: 500;
-  transform: translateY(calc(-100% - 8px));
+  position: absolute; left: calc(92% + 6px); top: 20%; z-index: 500;
+  transform: translate(-50%, calc(-100% - 8px));
   width: 30px; height: 30px; padding: 0;
   border: 1px solid rgba(0,0,0,.2); border-radius: 4px; background: rgba(255,255,255,.92);
   box-shadow: 0 1px 4px rgba(0,0,0,.15); cursor: pointer; font-size: 16px; line-height: 1;

@@ -50,6 +50,7 @@ async function init() {
 
     wireControls();
     refresh();
+    await map.primeSelect(); // absorb scattermapbox's dropped first box-select, behind the loader
     $('loading').hidden = true;
   } catch (e) {
     console.error(e);
