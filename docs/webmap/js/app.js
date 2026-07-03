@@ -10,7 +10,7 @@ const DATA_URL = 'data/companieshouse_sy.csv';
 const BOUNDARIES_URL = 'data/sy_localauthorities.geojson';
 
 const $ = (id) => document.getElementById(id);
-const state = { metric: 'count', tmMetric: 'emp', selection: null, selectedRows: null, additive: false, plotted: [], distKind: 'hist' };
+const state = { metric: 'count', tmMetric: 'emp', selection: null, selectedRows: null, additive: false, plotted: [], distKind: 'hist', cbFriendly: true };
 
 let rows, headers, filters, map, treemap, dist;
 
@@ -139,6 +139,16 @@ function wireControls() {
   // on-map +/- zoom control
   $('zoomInBtn').addEventListener('click', () => map.zoomBy(1));
   $('zoomOutBtn').addEventListener('click', () => map.zoomBy(-1));
+
+  // colour-blind palette toggle (eye button above the map colour bar)
+  $('paletteToggle').addEventListener('click', () => {
+    state.cbFriendly = !state.cbFriendly;
+    const btn = $('paletteToggle');
+    btn.classList.toggle('on', state.cbFriendly);
+    btn.setAttribute('aria-pressed', String(state.cbFriendly));
+    btn.title = state.cbFriendly ? 'Switch back to the default palette' : 'Switch to a colour-blind-friendly palette';
+    map.setColorBlind(state.cbFriendly);
+  });
 
   // "add to selection" toggle — when on, each box/lasso selection accumulates
   $('addSelBtn').addEventListener('click', () => {

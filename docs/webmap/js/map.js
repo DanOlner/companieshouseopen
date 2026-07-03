@@ -2,6 +2,20 @@
 // Uses the global `Plotly` loaded via CDN in index.html.
 
 const RDYLGN = [[0, '#c62828'], [0.5, '#fff3b0'], [1, '#1a7f37']]; // diverging: red -> yellow -> green
+
+// Colour-blind-friendly alternatives, toggled by the eye button above the colour bar.
+//   employee count -> Viridis (perceptually uniform sequential)
+//   % change YoY   -> PuOr diverging (orange = shrank, purple = grew) which avoids the
+//                     red/green confusion of the default while keeping 0 = neutral white.
+const PUOR = [
+  [0.0, '#b35806'], [0.125, '#e08214'], [0.25, '#fdb863'], [0.375, '#fee0b6'],
+  [0.5, '#f7f7f7'],
+  [0.625, '#d8daeb'], [0.75, '#b2abd2'], [0.875, '#8073ac'], [1.0, '#542788'],
+];
+const SCALES = {
+  count: { default: 'Portland', cb: 'Viridis' },
+  pct:   { default: RDYLGN,     cb: PUOR },
+};
 const fmtInt = (v) => (v == null ? '—' : Number(v).toLocaleString());
 const fmtPct = (v) => (v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%');
 const fmtAge = (v) => (v == null ? '—' : v.toFixed(1));
@@ -49,6 +63,8 @@ export class MapView {
     this.mode = 'pan';
     this.currentRows = [];
     this._drawn = false;
+    this._cb = true;           // colour-blind-friendly palette on/off (on by default)
+    this._metric = 'count';    // metric of the last render (so a palette swap can restyle)
     // LA boundary lines drawn under the points (a stable reference so Plotly.react
     // doesn't re-diff the GeoJSON on every filter). Empty if the file didn't load.
     this._boundaryLayers = boundaries
@@ -65,14 +81,20 @@ export class MapView {
     return rows.map(r => 4 + 22 * Math.min(1, Math.sqrt(r.employees ?? 0) / ref));
   }
 
+  // Colourscale for a metric, honouring the colour-blind toggle.
+  _scaleFor(metric) {
+    const set = metric === 'pct' ? SCALES.pct : SCALES.count;
+    return this._cb ? set.cb : set.default;
+  }
+
   _markerColorSpec(rows, metric) {
     // Scale the colour bar to the min/max of the current selection (both metrics).
     if (metric === 'pct') {
-      // 0-centred, symmetric, robust cap: keeps 0 = neutral, red = shrank / green = grew.
+      // 0-centred, symmetric, robust cap: keeps 0 = neutral, low = shrank / high = grew.
       const cap = Math.max(absPercentile(rows, r => r.pct, 0.95), 1);
       return {
         color: rows.map(r => r.pct),
-        colorscale: RDYLGN, cmin: -cap, cmax: cap,
+        colorscale: this._scaleFor('pct'), cmin: -cap, cmax: cap,
         colorbar: { title: { text: 'Δ % YoY', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2 },
       };
     }
@@ -85,13 +107,14 @@ export class MapView {
     const { tickvals, ticktext } = logTicks(lo, hi);
     return {
       color: rows.map(r => (r.employees == null ? null : Math.log10(Math.max(r.employees, 1)))),
-      colorscale: 'Portland', cmin, cmax,
+      colorscale: this._scaleFor('count'), cmin, cmax,
       colorbar: { title: { text: 'Employees', side: 'right' }, thickness: 12, len: 0.6, x: 1, xpad: 2, tickvals, ticktext },
     };
   }
 
   render(rows, metric) {
     this.currentRows = rows;
+    this._metric = metric;
     const colorSpec = this._markerColorSpec(rows, metric);
     const customdata = rows.map(r => [
       r.CompanyName || '(no name)',
@@ -155,6 +178,14 @@ export class MapView {
   setDragMode(mode) {
     this.mode = mode;
     Plotly.relayout(this.div, { dragmode: mode });
+  }
+
+  // Swap between the default palettes and the colour-blind-friendly ones. Only the
+  // colourscale changes (data values and cmin/cmax are unchanged), so a single restyle
+  // updates the markers and colour bar while leaving pan/zoom and the selection intact.
+  setColorBlind(on) {
+    this._cb = !!on;
+    if (this._drawn) Plotly.restyle(this.div, { 'marker.colorscale': [this._scaleFor(this._metric)] });
   }
 
   // Step the mapbox zoom (used by the on-map +/- buttons). Reads the live zoom

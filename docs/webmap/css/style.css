@@ -152,6 +152,18 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 #distTitle { font-weight: 600; color: var(--ink); }
 #distChart { height: 120px; }
 
+/* Colour-blind palette toggle, sitting just above the map colour bar (right edge).
+   The colour bar has len 0.6 centred vertically, so its top is ~20% down from the top. */
+#paletteToggle {
+  position: absolute; right: 8px; top: 20%; z-index: 500;
+  transform: translateY(calc(-100% - 8px));
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid rgba(0,0,0,.2); border-radius: 4px; background: rgba(255,255,255,.92);
+  box-shadow: 0 1px 4px rgba(0,0,0,.15); cursor: pointer; font-size: 16px; line-height: 1;
+}
+#paletteToggle:hover { background: #fff; }
+#paletteToggle.on { background: var(--accent); border-color: var(--accent); }
+
 /* Leaflet-style +/- zoom control, overlaid on the top-left of the map */
 #mapZoom {
   position: absolute; top: 10px; left: 10px; z-index: 500;
