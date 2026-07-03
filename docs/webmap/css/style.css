@@ -11,6 +11,12 @@
   --treemap-h: 300px;
 }
 
+/* Global page scale — the single knob for how "zoomed in" the whole UI looks.
+   Acts exactly like the browser's own zoom, so the full-height layout still
+   fills the screen and the Export button (top-right) stays on screen without
+   horizontal scroll. Nudge this one number: 0.75 ≈ two Safari zoom-out steps. */
+html { zoom: 1; }
+
 * { box-sizing: border-box; }
 
 html, body {

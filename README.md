@@ -8,10 +8,11 @@ OK, so it's already open data (see below) - but it's not very accessible. What t
 
 
 
-## THINGS ABOUT THE CODE
+## FROM COMPANIES HOUSE FILES TO USEABLE GEOCODED DATA
 
 The [wrangling](https://github.com/DanOlner/companieshouseopen/tree/master/wrangling) folder contains each processing stage. Those are (in rough order, though some can be run whenever useful):
 
 1. **[download_current_CH_livelist_n_save_reducedcopy_locally.R](https://github.com/DanOlner/companieshouseopen/blob/master/wrangling/download_current_CH_livelist_n_save_reducedcopy_locally.R)** -- Gets the latest CH live list of companies from the website, keeps the useful columns and saves as a compressed RDS locally. Creates a 'local' folder to put this in if it doesn't exist.
-2. 
+2. **[CH_livelist_addgeolocation.R](https://github.com/DanOlner/companieshouseopen/blob/master/wrangling/CH_livelist_addgeolocation.R)** -- uses firm postcode to add in geolocation and save as a simple features object.
+3. 
  
