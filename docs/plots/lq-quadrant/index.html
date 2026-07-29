@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sector concentration and direction of travel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%231b7837'/></svg>" />
+
+  <!-- Third-party libraries (no build step, loaded as globals) -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header id="topbar">
+  <h1>Sector concentration &amp; direction of travel</h1>
+
+  <div class="topgroup">
+    <span class="lbl">Vertical axis:</span>
+    <div class="segmented" id="metricToggle" role="group" aria-label="Which change to show on the y axis">
+      <button type="button" class="seg active" data-metric="dlq">% change in LQ</button>
+      <button type="button" class="seg" data-metric="djobs">% change in employees</button>
+    </div>
+  </div>
+
+  <div class="topgroup">
+    <span class="lbl">Compare:</span>
+    <button id="togglePanelB" class="toggle" aria-pressed="false">+ second place</button>
+  </div>
+
+  <button id="infoBtn" title="About this plot" aria-label="More information">i</button>
+</header>
+
+<div id="bodywrap">
+
+  <aside id="sidebar">
+
+    <section class="filterblock">
+      <div class="blockhead"><h2>Sector level</h2></div>
+      <div class="segmented vertical" id="levelPicker" role="group" aria-label="SIC level"></div>
+      <label class="check">
+        <input type="checkbox" id="showAll" />
+        Show every sector at this level
+      </label>
+      <p class="note">
+        Off: only the sectors inside whatever you have drilled into.
+        On: all sectors at the chosen level, ignoring the drill.
+      </p>
+    </section>
+
+    <section class="filterblock">
+      <div class="blockhead"><h2>Hide small sectors</h2></div>
+
+      <label class="slider">
+        <span>Minimum employees: <strong id="minJobsVal">100</strong></span>
+        <input type="range" id="minJobs" min="0" max="1000" step="25" value="100" />
+      </label>
+
+      <label class="slider">
+        <span>Minimum share of the place: <strong id="minShareVal">0.00%</strong></span>
+        <input type="range" id="minShare" min="0" max="200" step="5" value="0" />
+      </label>
+      <p class="note">
+        Tiny sectors throw wild LQs &mdash; a few dozen employees can push a
+        sector far right of the line without meaning much. The share filter is
+        the sharper of the two, since it asks how much of the place a sector
+        actually accounts for.
+      </p>
+    </section>
+
+    <section class="filterblock">
+      <div class="blockhead"><h2>Labels</h2></div>
+      <label class="slider">
+        <span>Label the largest <strong id="labelNVal">20</strong></span>
+        <input type="range" id="labelN" min="0" max="60" step="1" value="20" />
+      </label>
+      <p class="note">Hovering always labels, whatever this is set to.</p>
+    </section>
+
+    <section class="filterblock" id="legendBlock">
+      <div class="blockhead"><h2>Reading it</h2></div>
+      <ul class="legend">
+        <li><span class="sw" style="background:#1b7837"></span> Concentrated, growing</li>
+        <li><span class="sw" style="background:#c0392b"></span> Concentrated, shrinking</li>
+        <li><span class="sw" style="background:#5aa2d0"></span> Under-represented, growing</li>
+        <li><span class="sw" style="background:#9a9a9a"></span> Under-represented, shrinking</li>
+      </ul>
+      <p class="note">
+        Circle area is employee count. Right of the blue line means more
+        concentrated here than in GB as a whole. The big faint circle is the
+        sector you drilled into, one level up.
+      </p>
+    </section>
+
+  </aside>
+
+  <main id="panels">
+    <div id="breadcrumb" aria-label="Drill path"></div>
+    <div id="panelA" class="panel"></div>
+    <div id="panelB" class="panel hidden"></div>
+    <p id="status" class="status">Loading&hellip;</p>
+  </main>
+
+</div>
+
+<div id="infoModal" class="modal hidden">
+  <div class="modalbox">
+    <button id="infoClose" class="modalclose" aria-label="Close">&times;</button>
+    <h2>What this shows</h2>
+    <p>
+      Every UK company filing accounts at Companies House reports an employee
+      count for the current period <em>and</em> the previous one. Treating those
+      as two timepoints gives each sector in each local authority a location
+      quotient at both, and the movement between them.
+    </p>
+    <p>
+      <strong>Horizontal:</strong> location quotient on a log scale. Right of the
+      blue line, the sector takes a bigger share of local employment than it does
+      of GB employment.
+    </p>
+    <p>
+      <strong>Vertical:</strong> either the change in that LQ, or the change in the
+      raw employee count. They differ, and the difference matters &mdash; a sector
+      can add people while its LQ falls, because it grew faster somewhere else.
+      The scale is pseudo-log, so gridlines are uneven: without it a single sector
+      doubling would flatten everything else onto the zero line.
+    </p>
+    <p>
+      <strong>Click a circle</strong> to drill into the SIC codes inside it. The
+      sector you came from stays on the plot as a large faint circle so you can
+      see how its parts sit against the whole.
+    </p>
+    <p>
+      <strong>With two places showing</strong>, hovering a sector rings it in
+      both panels at once. If it isn't in the other panel, that panel says why:
+      either the filters have hidden it (with the employee count, so you can see
+      how far off the threshold it is) or the place has none recorded at all.
+    </p>
+    <p class="note">
+      Only firms reporting an employee count in both years are counted, which is
+      about 71% of them. Companies House records a registered address, not a
+      workplace, so multi-site firms land entirely at their registered office.
+      Treat this as a view of company registrations, not a jobs census.
+    </p>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/quadrant.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -140,3 +140,181 @@ p5 <- plot_lq_for_place(
 )
 
 p5
+
+
+# LQ EXPERIMENTS ==========================================================
+#
+# The plot above has two known weaknesses:
+#   (a) every other place is a faint bubble cloud - you can see there IS a spread
+#       but not who is who, so "Sheffield vs Leeds" is guesswork
+#   (b) direction of change is encoded as bubble SIZE, which reads badly for a
+#       signed quantity and competes with the LQ position for attention
+#
+# Four alternatives below, each attacking a different part of that.
+# They all run off results$yeartoplot.
+#
+# The quadrant plot wants pct_change_LQ / pct_change_jobs, which get_lqs_and_slopes()
+# gained after the first version of this file. If your results object (or a saved
+# local/CH_yeartoplot.rds) was built before that, pct_change_LQ is derived from
+# slope on the fly, but change = 'jobs' needs both timepoints and can't be
+# recovered - re-run the RUN section above for that.
+'pct_change_jobs' %in% names(results$yeartoplot)
+
+
+# 0. SET UP THE COMPARISON PLACES -----------------------------------------
+
+corecities <- uk_core_cities()
+
+# Check the names actually match this data before relying on them.
+# Belfast is the only miss - the LA lookup in the processed file is GB only.
+setdiff(corecities, unique(results$yeartoplot$GEOGRAPHY_NAME))
+
+southyorkshire <- c('Barnsley', 'Doncaster', 'Rotherham', 'Sheffield')
+setdiff(southyorkshire, unique(results$yeartoplot$GEOGRAPHY_NAME))
+
+twodigit <- results$yeartoplot %>%
+  filter(siclevel == 'sic2') %>%
+  filter(!grepl('household own|membership|extra', sic_name, ignore.case = TRUE))
+
+fivedigit <- results$yeartoplot %>% filter(siclevel == 'sic5')
+
+# WATCH OUT: tiny sectors produce wild LQs and will sit at the top of anything
+# ordered by LQ. Sector 99 (extraterritorial organisations) and 92 (gambling)
+# both do this for Sheffield - a few hundred employees giving an LQ over 10.
+# min_jobcount is the blunt lever; filtering on the place's own share is sharper:
+twodigit %>%
+  filter(GEOGRAPHY_NAME == 'Sheffield') %>%
+  slice_max(LQ, n = 8) %>%
+  select(sic_name, JOBCOUNT, sector_regional_proportion, LQ)
+
+# e.g. drop anything under a quarter of a percent of the place's employment
+twodigit_solid <- twodigit %>%
+  group_by(sic) %>%
+  filter(any(GEOGRAPHY_NAME == 'Sheffield' & sector_regional_proportion > 0.0025)) %>%
+  ungroup()
+
+
+# 1. QUADRANT: concentration against direction ----------------------------
+#
+# Gets change off bubble size and onto its own axis. Reading:
+#   top right    = already concentrated here AND still growing
+#   bottom right = the specialism is real but eroding - usually the one to look at
+#   top left     = not a specialism yet, but heading that way
+#   bottom left  = under-represented and falling further behind
+
+# The y axis is pseudo-log by default: one sector doubling its LQ would otherwise
+# flatten every other sector onto the zero line. Note the uneven gridlines that
+# comes with - y_scale = 'linear' if you'd rather have the honest raw spread.
+q_lq <- plot_lq_quadrant(twodigit, place = 'Sheffield', min_jobcount = 100)
+q_lq
+
+plot_lq_quadrant(twodigit, place = 'Sheffield', min_jobcount = 100, y_scale = 'linear')
+
+# The same plot against raw employment change rather than LQ change. Worth doing
+# both: LQ change is relative to the national trend, so a sector can add people
+# while its LQ falls (it grew, but slower than everywhere else). Where these two
+# disagree is usually where the interesting story is.
+q_jobs <- plot_lq_quadrant(twodigit, place = 'Sheffield', min_jobcount = 100,
+                           change = 'jobs')
+q_jobs
+
+# 5 digit version - needs a higher threshold to stay readable
+plot_lq_quadrant(fivedigit, place = 'Sheffield', min_jobcount = 250, label_n = 20)
+
+
+# 2. DUMBBELL: named places instead of a bubble cloud ---------------------
+#
+# One row per sector, one coloured dot per place, grey bar showing the spread.
+# Sectors ordered by Sheffield's LQ, so its specialisms sit at the top and you can
+# read straight across to see who else has them. The ordering place gets a dark
+# halo so the eye can follow it down the rows.
+
+d_core <- plot_lq_dumbbell(twodigit, places = corecities, order_by = 'Sheffield',
+                           min_jobcount = 100, top_n = 30)
+d_core
+
+# Fewer places is much easier to read. Sheffield against its obvious comparators:
+d_peers <- plot_lq_dumbbell(twodigit,
+                            places = c('Sheffield','Leeds','Manchester','Birmingham'),
+                            order_by = 'Sheffield', min_jobcount = 100, top_n = 30)
+d_peers
+
+
+# 3. DISTRIBUTION: is this LQ actually unusual? ---------------------------
+#
+# An LQ of 1.5 means something different in a sector that's evenly spread across
+# the country than in one concentrated in three places. The box shows the spread
+# of every LA's LQ for that sector, so you can see whether a place is genuinely an
+# outlier or just mid-pack. The main plot's faint bubble cloud was groping at this
+# but couldn't be read off.
+
+dist <- plot_lq_distribution(twodigit,
+                             places = c('Sheffield','Leeds','Manchester'),
+                             order_by = 'Sheffield', min_jobcount = 100, top_n = 25)
+dist
+
+
+# 4. NESTED: a region and the places inside it ----------------------------
+#
+# Runs the LQ three times over: South Yorkshire as one region against GB, then its
+# four LAs against GB, then the same four against South Yorkshire itself.
+# parent_las is just a vector of LA names, so this works for any MCA or ad hoc
+# grouping - it isn't tied to the ITL2 boundaries in the data.
+#
+# Takes about three times as long as a single pipeline run. Pass digitlevels = 2
+# while iterating.
+
+sy_nested <- ch_lq_nested(ch, parent_las = southyorkshire,
+                          parent_name = 'South Yorkshire',
+                          digitlevels = 2:5)
+
+sy_nested <- sy_nested %>% left_join(names_bylevel, by = c('siclevel','sic'))
+
+saveRDS(sy_nested, 'local/CH_SouthYorkshire_nested_lqs.rds')
+
+# CHECKS ON THE NESTED MATHS
+# Note the denominators here: the pipeline only emits rows for place-and-sector
+# combinations that actually exist, so you cannot sum region_totalsize over the
+# rows present and expect the group total. Use the totalsize column, which
+# already carries it. (Getting this wrong makes correct output look broken.)
+
+# Weight each LA's LQ by that LA's total employment, divide by the group total:
+# must be exactly 1 per sector when the parent is the denominator. Comes out at
+# 2e-16, i.e. floating point noise.
+sy_nested %>%
+  filter(denominator == 'parent', siclevel == 'sic2') %>%
+  group_by(sic) %>%
+  summarise(identity = sum(LQ * region_totalsize) / first(totalsize), .groups = 'drop') %>%
+  summarise(max_deviation_from_1 = max(abs(identity - 1)))
+
+# South Yorkshire's total employment should be its four LAs added up
+sy_nested %>%
+  filter(denominator == 'national', level == 'child') %>%
+  distinct(GEOGRAPHY_NAME, region_totalsize) %>%
+  summarise(from_the_four_las = sum(region_totalsize))
+
+sy_nested %>% filter(level == 'parent') %>% pull(region_totalsize) %>% unique()
+
+# Left panel: South Yorkshire (black diamond) and its four LAs, all against GB.
+# Right panel: the four LAs against South Yorkshire's own mix, so the region sits
+# at 1 by definition (the blue line) and you see who pulls the region's number up.
+#
+# The pair to look for: a sector where all four LAs sit right of 1 in the left
+# panel but cluster ON 1 in the right panel. That's a genuinely regional strength,
+# spread evenly - not one town's employer showing up as a regional statistic.
+n_sy <- plot_lq_nested(sy_nested %>% filter(siclevel == 'sic2'),
+                       min_jobcount = 100, top_n = 25)
+n_sy
+
+# 5 digit, where CH beats BRES on disclosure - the steel and metals detail
+n_sy5 <- plot_lq_nested(sy_nested %>% filter(siclevel == 'sic5'),
+                        min_jobcount = 150, top_n = 25)
+n_sy5
+
+
+# SAVE THE EXPERIMENTS ----------------------------------------------------
+
+# ggsave('local/images/exp_quadrant_sheffield.png', q_lq, width = 11, height = 8)
+# ggsave('local/images/exp_dumbbell_peers.png', d_peers, width = 11, height = 10)
+# ggsave('local/images/exp_distribution.png', dist, width = 11, height = 10)
+# ggsave('local/images/exp_nested_sy.png', n_sy, width = 13, height = 10)
