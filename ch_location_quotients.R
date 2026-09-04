@@ -247,11 +247,98 @@ d_peers
 # of every LA's LQ for that sector, so you can see whether a place is genuinely an
 # outlier or just mid-pack. The main plot's faint bubble cloud was groping at this
 # but couldn't be read off.
+#
+# WHY THE MEDIAN ISN'T AT LQ = 1
+#
+# The median marker sits either side of the blue line and that is not a bug.
+# What the LQ pins at 1 is the EMPLOYMENT-WEIGHTED MEAN across LAs, not the
+# median: sum(LQ * LA total employment) / GB total == 1 for every sector, exactly
+# (holds to machine precision - see the nested checks further down for the same
+# identity written out). The median carries no such guarantee.
+#
+# In practice 80 of the 88 two digit sectors have their median BELOW 1. That's
+# not a finding about those sectors, it's the arithmetic: LQ is bounded at zero
+# but unbounded above, so it's right-skewed, and a right-skewed distribution has
+# its median below its mean. The mean is stuck at 1, so the median lands under it.
+#
+# The eight exceptions are sectors where LQ FALLS as the LA gets bigger (log size
+# vs log LQ correlates about -0.41 for them, versus ~0 for everything else):
+# extractive industries that only exist in a few small places (tobacco 5.29,
+# metal ores 2.09, coal 1.71), plus the ubiquitous local trades every small town
+# has proportionally more of than a big city - specialised construction 1.11,
+# motor trade 1.08, machinery repair 1.05. Small LAs carry little employment
+# weight, so they can sit well above 1 without moving the weighted mean.
+#
+# TWO THINGS THIS MEANS WHEN READING THE PLOT
+#
+# 1. The median is unweighted, so it treats Rutland the same as Birmingham. It's
+#    the middle LOCAL AUTHORITY, not the middle worker. "Above the median" is a
+#    weaker claim than it sounds.
+# 2. Don't read "median below 1" as most places being under-represented. Compare
+#    the place against the SPREAD, not the median against 1 - Sheffield's basic
+#    metals sitting outside the whole body of the violin is the real signal.
+#
+# Incidentally the median mark doesn't move when you switch to the log axis:
+# medians survive monotone transforms unchanged. The log scale changes the
+# violin's shape (the density is computed on log10(LQ)) but not the median line.
+
+# The numbers quoted above, re-runnable, so they can't quietly go stale when the
+# CH extract is updated. Uses every 2 digit sector, not the filtered `twodigit`.
+lq2 <- results$yeartoplot %>% filter(siclevel == 'sic2', LQ > 0)
+
+# a. the identity: employment-weighted mean LQ is exactly 1 in every sector
+lq2 %>%
+  group_by(sic) %>%
+  summarise(weighted_mean = sum(LQ * region_totalsize) / first(totalsize),
+            .groups = 'drop') %>%
+  summarise(sectors = n(), max_deviation_from_1 = max(abs(weighted_mean - 1)))
+
+# b. where each sector's median LA sits, and whether LQ tracks how big the LA is
+median_position <- lq2 %>%
+  group_by(sic, sic_name) %>%
+  summarise(
+    median_LQ = median(LQ),
+    #negative = LQ falls as the LA gets bigger
+    cor_with_LA_size = cor(log(region_totalsize), log(LQ)),
+    .groups = 'drop'
+  ) %>%
+  mutate(median_above_1 = median_LQ > 1)
+
+# how many sit each side (was 8 above, 80 below)
+median_position %>% count(median_above_1)
+
+# the exceptions themselves (was tobacco 5.29, metal ores 2.09, coal 1.71...)
+median_position %>% filter(median_above_1) %>% arrange(-median_LQ) %>%
+  select(sic_name, median_LQ, cor_with_LA_size)
+
+# c. and the reason they're exceptions: LQ falling away as the LA gets bigger
+# (was about -0.41 for the eight, against ~0 for everything else)
+median_position %>%
+  group_by(median_above_1) %>%
+  summarise(sectors = n(), mean_cor_with_LA_size = mean(cor_with_LA_size))
+
 
 dist <- plot_lq_distribution(twodigit,
                              places = c('Sheffield','Leeds','Manchester'),
                              order_by = 'Sheffield', min_jobcount = 100, top_n = 25)
 dist
+
+# shape = 'violin' swaps the box for the actual density, with the quartiles kept
+# as dotted lines inside it. Worth flipping between the two: the box tells you
+# where the middle half sits, the violin tells you whether the spread is one lump
+# or several. A sector held up by a handful of places has a long thin tail that
+# the box just reports as outliers.
+dist_violin <- plot_lq_distribution(twodigit,
+                                    places = c('Sheffield','Leeds','Manchester'),
+                                    order_by = 'Sheffield', min_jobcount = 100,
+                                    top_n = 25, shape = 'violin')
+dist_violin
+
+dist_violin <- plot_lq_distribution(twodigit,
+                                    places = c('Sheffield','Rotherham','Barnsley','Doncaster'),
+                                    order_by = 'Sheffield', min_jobcount = 100,
+                                    top_n = 25, shape = 'violin', palettename = 'Paired')
+dist_violin
 
 
 # 4. NESTED: a region and the places inside it ----------------------------

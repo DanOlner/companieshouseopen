@@ -840,8 +840,8 @@ maybe_repel <- function(...){
 
 #Dark2 tops out at 8 colours and the core cities list is 11, so fall back to a
 #generated hue scale rather than letting brewer silently drop places
-place_colour_scale <- function(n){
-  if(n <= 8) scale_colour_brewer(palette = 'Dark2') else scale_colour_hue(l = 45, c = 90)
+place_colour_scale <- function(n, palettename = 'Dark2'){
+  if(n <= 8) scale_colour_brewer(palette = palettename) else scale_colour_hue(l = 45, c = 90)
 }
 
 #Shared: pick the sectors to show, based on one place's LQ ranking
@@ -1003,12 +1003,25 @@ plot_lq_dumbbell <- function(yeartoplot, places, sector_col = sic_name,
 # An LQ of 1.5 means different things in different sectors - some are evenly
 # spread across the country, some are concentrated in two or three places.
 # This shows the full spread of every LA's LQ per sector, with chosen places on it.
-# Swap geom_boxplot for ggridges::geom_density_ridges if you prefer the shape.
+#
+# shape = 'box'    - quartiles and outliers. Precise, and easy to read a place's
+#                    position off, but says nothing about the shape of the spread.
+# shape = 'violin' - the actual density. Shows bimodality and long tails that a
+#                    box hides: a sector concentrated in a handful of places looks
+#                    quite different from one that is evenly spread but wide.
+#                    Quartile lines are drawn inside it so you don't lose what the
+#                    box was telling you.
+#
+# Note the density is computed on log10(LQ), not raw LQ, because ggplot applies
+# the scale transform before the stat. That is the right way round here - it means
+# the violin's shape matches the axis it is drawn against.
 plot_lq_distribution <- function(yeartoplot, places, sector_col = sic_name,
                                  order_by = places[1], min_jobcount = 100,
-                                 top_n = 25, truncate_labels = 55, title = NULL){
+                                 top_n = 25, truncate_labels = 55, palettename = 'Dark2',
+                                 shape = c('box','violin'), title = NULL){
 
   sector_col <- enquo(sector_col)
+  shape <- match.arg(shape)
 
   keep <- top_sectors_for(yeartoplot, order_by, !!sector_col, min_jobcount, top_n)
 
@@ -1025,17 +1038,43 @@ plot_lq_distribution <- function(yeartoplot, places, sector_col = sic_name,
 
   marked <- allplaces %>% filter(GEOGRAPHY_NAME %in% places)
 
-  ggplot() +
-    geom_vline(xintercept = 1, colour = 'blue') +
+  spread_layer <- if(shape == 'violin'){
+
+    #scale = 'width' so every row is the same height: we're comparing where a
+    #place sits within each sector, not how many LAs report each sector.
+    #quantiles / quantile.linetype are the ggplot2 4.0 spelling - draw_quantiles
+    #still works but is deprecated (and its warning misnames the replacement).
+    geom_violin(data = allplaces, aes(y = !!sector_col, x = LQ),
+                orientation = 'y', scale = 'width', trim = TRUE,
+                #not grey92: that is exactly theme_grey's panel colour, so the
+                #violin bodies vanish and you only see the outline
+                fill = 'grey98', colour = 'grey55', linewidth = 0.3,
+                quantiles = c(0.25, 0.5, 0.75),
+                quantile.linetype = 'dotted', quantile.colour = 'grey40',
+                quantile.linewidth = 0.3)
+
+  } else {
+
     geom_boxplot(data = allplaces, aes(y = !!sector_col, x = LQ),
                  colour = 'grey55', outlier.size = 0.4, outlier.alpha = 0.2,
-                 linewidth = 0.3) +
+                 linewidth = 0.3)
+
+  }
+
+  xlab <- if(shape == 'violin'){
+    'LQ, log scale - violin shows the density across every LA, quartiles dotted'
+  } else {
+    'LQ, log scale - box shows the spread across every LA in the data'
+  }
+
+  ggplot() +
+    geom_vline(xintercept = 1, colour = 'blue') +
+    spread_layer +
     geom_point(data = marked, aes(y = !!sector_col, x = LQ, colour = GEOGRAPHY_NAME),
                size = 2.8, alpha = 0.9) +
     scale_x_log10(labels = scales::comma) +
-    place_colour_scale(length(unique(marked$GEOGRAPHY_NAME))) +
-    labs(x = 'LQ, log scale - box shows the spread across every LA in the data',
-         y = NULL, colour = NULL,
+    place_colour_scale(length(unique(marked$GEOGRAPHY_NAME)), palettename) +
+    labs(x = xlab, y = NULL, colour = NULL,
          title = title %||% paste0('Where these places sit in the national LQ spread')) +
     theme(legend.position = 'bottom')
 

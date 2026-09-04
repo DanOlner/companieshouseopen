@@ -148,7 +148,10 @@ export class MapView {
       margin: { l: 0, r: 0, t: 0, b: 0 },
       uirevision: 'keep', // preserve pan/zoom across re-renders (filtering/metric change)
       mapbox: {
-        style: 'carto-positron',
+        // OpenFreeMap's Positron clone. Plotly's own 'carto-positron' points at CARTO's
+        // hosted style, which now watermarks unkeyed tiles with "API KEY REQUIRED".
+        // OpenFreeMap serves the same look with no key and no rate limit.
+        style: 'https://tiles.openfreemap.org/styles/positron',
         center: { lon: -1.33, lat: 53.48 },
         zoom: 9.5,
         layers: this._boundaryLayers, // LA borders, rendered beneath the marker trace
